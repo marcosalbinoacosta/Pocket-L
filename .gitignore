@@ -11,3 +11,4 @@ out
 next-env.d.ts
 *.xlsx
 .claude/settings.local.json
+scripts/seed-representantes.ts
