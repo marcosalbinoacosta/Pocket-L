@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase";
+import { codigoPais } from "@/lib/country-codes";
 import type { Participante, Pais } from "@/lib/types";
 
 export interface ParticipanteFormValues {
@@ -69,6 +70,9 @@ export default function ParticipanteForm({ initial, submitLabel, onSubmit }: Pro
     setPaisQuery(p.nombre);
     setContinente(p.continente);
     setShowSugs(false);
+    // prefill teléfono con el prefijo del país (sólo si el campo está vacío)
+    const prefix = codigoPais(p.id);
+    if (prefix && !telefono.trim()) setTelefono(prefix + " ");
   }
 
   function clearPais() {
