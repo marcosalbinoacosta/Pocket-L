@@ -13,7 +13,7 @@ interface Props {
 }
 
 export default function SearchBar({
-  placeholder = "Buscar nombre, país u organización…",
+  placeholder = "Buscar…",
   autoFocus,
   limit = 30,
   showShortcut
@@ -56,14 +56,26 @@ export default function SearchBar({
   return (
     <div className="w-full">
       <div className="relative">
-        <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-base text-slate-400">⌕</span>
+        <svg
+          aria-hidden="true"
+          className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <circle cx="11" cy="11" r="7" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
         <input
           autoFocus={autoFocus}
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder={placeholder}
           inputMode="search"
-          className="input-lg pl-10 pr-16"
+          className="input-lg pl-11 pr-16"
         />
         {q ? (
           <button
