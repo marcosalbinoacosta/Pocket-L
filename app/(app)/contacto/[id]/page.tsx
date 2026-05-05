@@ -76,6 +76,25 @@ export default function ContactoPage() {
     if (error) alert("No se pudo actualizar: " + error.message);
   }
 
+  async function eliminarParticipante() {
+    if (!p) return;
+    const ok = window.confirm(`¿Eliminar a "${p.nombre_completo}"? Se borran también sus contactos y notas. Esta acción no se puede deshacer.`);
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/participantes/${p.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error ?? "No se pudo eliminar");
+      }
+      router.push("/inicio");
+    } catch (e: any) {
+      alert(e?.message ?? "Error al eliminar");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function generarBrief() {
     if (!id || briefLoading) return;
     setBrief("");
@@ -118,7 +137,17 @@ export default function ContactoPage() {
 
   return (
     <main className="app-shell">
-      <button onClick={() => router.back()} className="btn-ghost mb-2 -ml-2">← volver</button>
+      <div className="mb-2 flex items-center justify-between">
+        <button onClick={() => router.back()} className="btn-ghost -ml-2">← volver</button>
+        <div className="flex gap-1">
+          <Link href={`/contacto/${p.id}/editar`} className="btn-ghost text-xs">Editar</Link>
+          <button
+            onClick={eliminarParticipante}
+            disabled={busy}
+            className="btn-ghost text-xs text-red-600 disabled:opacity-50"
+          >Borrar</button>
+        </div>
+      </div>
 
       <header className="card card-pad">
         <h1 className="text-xl font-bold text-ink">{p.nombre_completo}</h1>

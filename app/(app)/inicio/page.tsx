@@ -77,7 +77,14 @@ export default function InicioPage() {
           <h1 className="app-h1">Inicio</h1>
           <p className="text-sm text-slate-500">Explorá por continente, organismo o buscá directo.</p>
         </div>
-        <UserChip />
+        <div className="flex items-center gap-2">
+          <Link
+            href="/agregar"
+            aria-label="Agregar participante"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-brand-500 text-lg font-bold text-white shadow-card active:bg-brand-700"
+          >+</Link>
+          <UserChip />
+        </div>
       </header>
 
       <SearchBar showShortcut />
