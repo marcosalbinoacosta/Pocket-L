@@ -21,6 +21,9 @@ export default function ContactoPage() {
   const [notas, setNotas] = useState<(Nota & { rep?: { nombre: string; color: string } })[]>([]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
+  const [brief, setBrief] = useState("");
+  const [briefLoading, setBriefLoading] = useState(false);
+  const [briefError, setBriefError] = useState<string | null>(null);
 
   const sb = supabaseBrowser();
 
@@ -71,6 +74,31 @@ export default function ContactoPage() {
       .eq("id", c.id);
     setBusy(false);
     if (error) alert("No se pudo actualizar: " + error.message);
+  }
+
+  async function generarBrief() {
+    if (!id || briefLoading) return;
+    setBrief("");
+    setBriefError(null);
+    setBriefLoading(true);
+    try {
+      const res = await fetch(`/api/brief/${id}`);
+      if (!res.ok || !res.body) {
+        const msg = await res.text().catch(() => "Error generando brief");
+        throw new Error(msg);
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        setBrief(prev => prev + decoder.decode(value, { stream: true }));
+      }
+    } catch (e: any) {
+      setBriefError(e?.message ?? "Error inesperado");
+    } finally {
+      setBriefLoading(false);
+    }
   }
 
   async function addNota() {
@@ -131,6 +159,33 @@ export default function ContactoPage() {
           </div>
         </Link>
       )}
+
+      <section className="mt-4">
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="app-h2">Brief IA</h2>
+          <button
+            onClick={generarBrief}
+            disabled={briefLoading}
+            className="btn-ghost text-xs disabled:opacity-50"
+          >
+            {briefLoading ? "Generando…" : brief ? "Regenerar" : "Generar"}
+          </button>
+        </div>
+        {!brief && !briefLoading && !briefError && (
+          <div className="ph py-4">Tap «Generar» para preparar la reunión</div>
+        )}
+        {briefLoading && !brief && (
+          <div className="shimmer h-24 rounded-xl" />
+        )}
+        {briefError && (
+          <div className="card card-pad text-sm text-red-600">⚠ {briefError}</div>
+        )}
+        {brief && (
+          <div className="card card-pad whitespace-pre-wrap text-sm leading-relaxed text-ink">
+            {brief}
+          </div>
+        )}
+      </section>
 
       <section className="mt-4">
         <div className="mb-2 flex items-center justify-between">
