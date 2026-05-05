@@ -1,0 +1,138 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body {
+  background-color: #f0eee9;
+  color: #0f172a;
+  -webkit-tap-highlight-color: transparent;
+}
+body { font-size: 15px; font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; }
+
+/* ---------------------------------------------------------------------------
+   Tipografía utilitaria
+--------------------------------------------------------------------------- */
+.num   { font-family: var(--font-mono), ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.hand  { font-family: var(--font-hand), Caveat, cursive; letter-spacing: 0.01em; }
+.label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------------------
+   Botones
+--------------------------------------------------------------------------- */
+.btn-primary {
+  @apply inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-3 text-base font-semibold text-white shadow-card active:bg-brand-700;
+}
+.btn-secondary {
+  @apply inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-3 text-base font-semibold text-ink shadow-soft active:bg-brand-50;
+}
+.btn-gold {
+  @apply inline-flex items-center justify-center rounded-lg px-4 py-3 text-base font-semibold text-brand-900 shadow-card active:opacity-90;
+  background-image: linear-gradient(135deg, #E2C988 0%, #B08F4A 100%);
+}
+.btn-ghost {
+  @apply inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-medium text-slate-600 active:bg-brand-50;
+}
+
+/* ---------------------------------------------------------------------------
+   Layout
+--------------------------------------------------------------------------- */
+.app-shell { @apply mx-auto w-full max-w-md px-4 pt-4 pb-24; }
+.app-h1    { @apply text-2xl font-bold tracking-tight text-ink; }
+.app-h2    { @apply text-base font-semibold text-ink; }
+
+/* Cards */
+.card        { @apply rounded-xl bg-white shadow-card; }
+.card-hover  { @apply transition-shadow hover:shadow-lift; }
+.card-pad    { @apply p-4; }
+
+/* ---------------------------------------------------------------------------
+   Inputs
+--------------------------------------------------------------------------- */
+.input {
+  @apply w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-base text-ink placeholder:text-slate-400 placeholder:font-mono focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100;
+}
+.input-lg {
+  @apply w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-base text-ink placeholder:text-slate-400 placeholder:font-mono focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100;
+}
+
+/* ---------------------------------------------------------------------------
+   Tablas densas (.tbl)
+--------------------------------------------------------------------------- */
+.tbl { @apply w-full text-[13px] text-ink; border-collapse: separate; border-spacing: 0; }
+.tbl thead th {
+  @apply bg-slate-50 px-3 py-2 text-left font-semibold text-slate-500;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.tbl tbody td {
+  @apply px-3 py-2;
+  border-bottom: 1px solid #e2e8f0;
+}
+.tbl tbody tr:hover td { background-color: #faf4fc; }
+.tbl tbody tr:last-child td { border-bottom: none; }
+
+/* ---------------------------------------------------------------------------
+   Placeholders rayados (.stripes, .ph)
+--------------------------------------------------------------------------- */
+.stripes {
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(130, 57, 159, 0.08) 0,
+    rgba(130, 57, 159, 0.08) 1px,
+    transparent 1px,
+    transparent 8px
+  );
+}
+.ph {
+  @apply flex items-center justify-center rounded-lg border border-dashed border-brand-300/60 text-xs font-mono uppercase tracking-smallcaps text-brand-500/70;
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(130, 57, 159, 0.06) 0,
+    rgba(130, 57, 159, 0.06) 1px,
+    transparent 1px,
+    transparent 8px
+  );
+  min-height: 64px;
+}
+
+/* ---------------------------------------------------------------------------
+   Shimmer / loading
+--------------------------------------------------------------------------- */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+.shimmer {
+  background: linear-gradient(90deg, #ece9e3 0%, #f5f3ee 50%, #ece9e3 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+/* ---------------------------------------------------------------------------
+   kbd (estilo macOS)
+--------------------------------------------------------------------------- */
+.kbd {
+  @apply inline-flex items-center justify-center rounded-md border border-slate-300 bg-white px-1.5 text-[11px] font-mono text-slate-600;
+  min-width: 1.5rem;
+  height: 1.25rem;
+  box-shadow: 0 1px 0 rgba(15,23,42,0.08), inset 0 -1px 0 rgba(15,23,42,0.04);
+}
+
+/* ---------------------------------------------------------------------------
+   Util misc
+--------------------------------------------------------------------------- */
+.noscroll::-webkit-scrollbar { display: none; }
+.noscroll { scrollbar-width: none; }
+
+.divider { height: 1px; background-color: #e2e8f0; }
+
+.line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
