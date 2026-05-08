@@ -77,3 +77,55 @@ export interface Nota {
 export interface ParticipanteConEstado extends Participante {
   contacto: Pick<Contacto, "estado" | "alta_prioridad" | "updated_at" | "representante_id"> | null;
 }
+
+// =============================================================================
+// F.0024-02 · Contactos de stand
+// =============================================================================
+export type SistemaEmision = "fisico" | "digital" | "mixto";
+export type ModalidadCompra = "compra_directa" | "licitacion_publica" | "otro";
+export type ImpresorTipo = "estatal" | "privada" | "mixto";
+export type DesarrolloTipo = "propio" | "externo";
+export type ProximoPaso = "reunion_virtual" | "visita_presencial" | "cotizacion" | "info";
+export type CanalContacto = "whatsapp" | "linkedin" | "email" | "telefono";
+
+export interface StandContacto {
+  id: string;
+  participante_id: string | null;
+  institucion: string | null;
+  contacto_nombre: string;
+  cargo: string | null;
+  pais_id: string | null;
+  pais_label: string | null;
+  email: string | null;
+  telefono: string | null;
+
+  p1_notarios_aprox: number | null;
+  p2_emite_formularios: boolean | null;
+  p3_lineas_formularios: number | null;
+  p4_sistema_emision: SistemaEmision | null;
+
+  p5_falsificaciones: boolean | null;
+  p6_riesgos: string | null;
+
+  p7_seguridad_fisica: string | null;
+  p8_consumo_folios: string | null;
+  p9_modalidad_compra: ModalidadCompra | null;
+  p10_impresor: ImpresorTipo | null;
+  p11_proveedor_impresion: string | null;
+
+  p12_seguridad_digital: string | null;
+  p13_herramientas: string | null;
+  p14_desarrollo: DesarrolloTipo | null;
+  p14_proveedor_desarrollo: string | null;
+
+  p15_proximos_pasos: ProximoPaso[];
+  p16_canal_contacto: CanalContacto[];
+
+  observaciones: string | null;
+  recepcionado_por: string | null;
+  fecha: string;
+  tarjeta_url: string | null;
+
+  created_at: string;
+  updated_at: string;
+}

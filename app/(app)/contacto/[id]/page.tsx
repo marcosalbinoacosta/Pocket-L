@@ -7,7 +7,7 @@ import { getRepresentante } from "@/lib/auth";
 import EstadoBadge from "@/components/ui/EstadoBadge";
 import { fmtFecha, estadoLabel } from "@/lib/utils";
 import { fmtMillones, nivelSeguridad, segLabel, segColor } from "@/lib/format";
-import type { Contacto, Estado, Nota, Pais, Participante, Representante } from "@/lib/types";
+import type { Contacto, Estado, Nota, Pais, Participante, Representante, StandContacto } from "@/lib/types";
 
 const ESTADOS: Estado[] = ["pendiente","contactado","no_interesado"];
 
@@ -24,6 +24,7 @@ export default function ContactoPage() {
   const [brief, setBrief] = useState("");
   const [briefLoading, setBriefLoading] = useState(false);
   const [briefError, setBriefError] = useState<string | null>(null);
+  const [stand, setStand] = useState<Pick<StandContacto, "id" | "fecha" | "institucion" | "contacto_nombre" | "p15_proximos_pasos">[]>([]);
 
   const sb = supabaseBrowser();
 
@@ -45,6 +46,12 @@ export default function ContactoPage() {
     }
     if (cq.data) setC(cq.data as Contacto);
     if (nq.data) setNotas(nq.data as any);
+
+    const sq = await sb.from("stand_contactos")
+      .select("id,fecha,institucion,contacto_nombre,p15_proximos_pasos")
+      .eq("participante_id", id)
+      .order("fecha", { ascending: false });
+    if (sq.data) setStand(sq.data as any);
   }, [id, sb]);
 
   useEffect(() => { setMe(getRepresentante()); load(); }, [load]);
@@ -52,8 +59,9 @@ export default function ContactoPage() {
   useEffect(() => {
     if (!id) return;
     const ch = sb.channel(`contacto:${id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "contactos", filter: `participante_id=eq.${id}` }, load)
-      .on("postgres_changes", { event: "*", schema: "public", table: "notas",     filter: `participante_id=eq.${id}` }, load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "contactos",       filter: `participante_id=eq.${id}` }, load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "notas",           filter: `participante_id=eq.${id}` }, load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "stand_contactos", filter: `participante_id=eq.${id}` }, load)
       .subscribe();
     return () => { sb.removeChannel(ch); };
   }, [id, sb, load]);
@@ -291,6 +299,42 @@ export default function ContactoPage() {
           ))}
           {notas.length === 0 && <li className="ph py-4">Sin notas todavía</li>}
         </ul>
+      </section>
+
+      <section className="mt-5">
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="app-h2">F.0024-02 · Contactos de stand</h2>
+          <Link href={`/stand/nuevo?participante=${p.id}`} className="btn-ghost text-xs">+ Cargar</Link>
+        </div>
+        {stand.length === 0 ? (
+          <Link href={`/stand/nuevo?participante=${p.id}`} className="ph block py-5 text-center active:bg-brand-50">
+            Sin formularios cargados — tap para iniciar
+          </Link>
+        ) : (
+          <ul className="space-y-2">
+            {stand.map(s => (
+              <li key={s.id}>
+                <Link href={`/stand/${s.id}`} className="card card-hover card-pad block active:bg-brand-50">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-semibold text-ink truncate">{s.institucion ?? s.contacto_nombre}</div>
+                      {s.p15_proximos_pasos && s.p15_proximos_pasos.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {s.p15_proximos_pasos.map(pp => (
+                            <span key={pp} className="rounded-full bg-slate-100 px-1.5 py-0 text-[10px] font-semibold uppercase tracking-smallcaps text-slate-600">
+                              {({ reunion_virtual: "Reunión", visita_presencial: "Visita", cotizacion: "Cotización", info: "Info" } as any)[pp]}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="num shrink-0 text-[11px] text-slate-400">{fmtFecha(s.fecha)}</div>
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
     </main>
   );

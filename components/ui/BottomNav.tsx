@@ -6,6 +6,7 @@ const tabs = [
   { href: "/inicio",    label: "Inicio",  icon: "◎" },
   { href: "/buscar",    label: "Buscar",  icon: "⌕" },
   { href: "/paises",    label: "Países",  icon: "◈" },
+  { href: "/stand",     label: "Stand",   icon: "▣" },
   { href: "/dashboard", label: "Equipo",  icon: "▤" }
 ];
 

@@ -6,9 +6,11 @@ import EstadoBadge from "@/components/ui/EstadoBadge";
 import { fmtFecha } from "@/lib/utils";
 
 interface Stats { total: number; pendientes: number; contactados: number; alta_prioridad: number; no_interesado: number }
+interface StandStats { total: number; hoy: number; ultima_semana: number; ligados_uinl: number; paises_distintos: number }
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
+  const [standStats, setStandStats] = useState<StandStats | null>(null);
   const [alta, setAlta] = useState<any[]>([]);
   const [ultimasNotas, setUltimasNotas] = useState<any[]>([]);
 
@@ -16,6 +18,7 @@ export default function DashboardPage() {
     const sb = supabaseBrowser();
     const load = async () => {
       const s = await sb.from("v_dashboard_stats").select("*").single();
+      const ss = await sb.from("v_stand_stats").select("*").single();
       const a = await sb.from("contactos")
         .select("estado,alta_prioridad,updated_at,participante:participantes(id,nombre_completo,pais_label,cargo_principal)")
         .eq("alta_prioridad", true)
@@ -26,13 +29,15 @@ export default function DashboardPage() {
         .order("created_at", { ascending: false })
         .limit(8);
       if (s.data) setStats(s.data as Stats);
+      if (ss.data) setStandStats(ss.data as StandStats);
       if (a.data) setAlta(a.data as any);
       if (n.data) setUltimasNotas(n.data as any);
     };
     load();
     const ch = sb.channel("dashboard")
-      .on("postgres_changes", { event: "*", schema: "public", table: "contactos" }, load)
-      .on("postgres_changes", { event: "*", schema: "public", table: "notas" },     load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "contactos" },       load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "notas" },           load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "stand_contactos" }, load)
       .subscribe();
     return () => { sb.removeChannel(ch); };
   }, []);
@@ -68,6 +73,38 @@ export default function DashboardPage() {
         <Stat label="Alta"         value={stats?.alta_prioridad} accent />
         <Stat label="No interés"   value={stats?.no_interesado} muted />
       </div>
+
+      {/* F.0024-02 Contactos de stand */}
+      <div className="mt-6 mb-2 flex items-end justify-between">
+        <h2 className="app-h2">Stand · F.0024-02</h2>
+        <Link href="/stand" className="label hover:text-brand-700">Ver todos →</Link>
+      </div>
+      <Link href="/stand" className="card card-hover card-pad block active:bg-brand-50">
+        <div className="flex items-baseline justify-between">
+          <div>
+            <div className="label">Total cargados</div>
+            <div className="num mt-1 text-3xl font-bold text-brand-700">{standStats?.total ?? "—"}</div>
+          </div>
+          <div className="text-right">
+            <div className="label">Hoy</div>
+            <div className="num mt-1 text-2xl font-bold text-gold-600">{standStats?.hoy ?? "—"}</div>
+          </div>
+        </div>
+        <div className="mt-3 grid grid-cols-3 gap-2 text-center text-[11px]">
+          <div>
+            <div className="num text-base font-semibold text-ink">{standStats?.ultima_semana ?? "—"}</div>
+            <div className="label">7 días</div>
+          </div>
+          <div>
+            <div className="num text-base font-semibold text-ink">{standStats?.ligados_uinl ?? "—"}</div>
+            <div className="label">UINL</div>
+          </div>
+          <div>
+            <div className="num text-base font-semibold text-ink">{standStats?.paises_distintos ?? "—"}</div>
+            <div className="label">Países</div>
+          </div>
+        </div>
+      </Link>
 
       {/* Tabla densa: Alta prioridad */}
       <div className="mt-6 mb-2 flex items-end justify-between">
