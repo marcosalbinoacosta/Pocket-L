@@ -90,7 +90,8 @@ function cargoPrincipal(participaciones: { cargo: string | null; comision_codigo
 
 function normContinente(c: string | null | undefined): string | null {
   if (!c) return null;
-  const x = c.toString().trim().toLowerCase();
+  // strip acentos antes del prefix-check: "África" -> "africa" para que matchee "afr"
+  const x = c.toString().trim().normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
   if (x.startsWith("afr")) return "Africa";
   if (x.startsWith("am"))  return "America";
   if (x.startsWith("as"))  return "Asia";
@@ -191,8 +192,11 @@ async function importParticipantes() {
     const rolesRaw = row["Miembro de:"]?.toString().trim() || null;
 
     // upsert participante por (nombre + país) — no hay id estable en el Excel
-    const continenteExcel = normContinente(row["Continente"]);
-    const continenteFinal = continenteExcel ?? (paisId ? (idToContinente.get(paisId) ?? null) : null);
+    // El continente del pais es la fuente de verdad; el del Excel solo se
+    // usa como fallback cuando no hay pais matcheado (evita typos como
+    // "Wolfgang OTT / Alemania / America").
+    const continenteDePais = paisId ? (idToContinente.get(paisId) ?? null) : null;
+    const continenteFinal = continenteDePais ?? normContinente(row["Continente"]);
     const { data: ins, error } = await sb.from("participantes")
       .upsert({
         nombre_completo: nombre,
