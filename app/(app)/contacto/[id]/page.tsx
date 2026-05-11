@@ -25,8 +25,21 @@ export default function ContactoPage() {
   const [briefLoading, setBriefLoading] = useState(false);
   const [briefError, setBriefError] = useState<string | null>(null);
   const [stand, setStand] = useState<Pick<StandContacto, "id" | "fecha" | "institucion" | "contacto_nombre" | "p15_proximos_pasos">[]>([]);
+  const [participaciones, setParticipaciones] = useState<{
+    cargo: string | null;
+    comision: { codigo: string; nombre: string; tipo: string } | null;
+  }[]>([]);
 
   const sb = supabaseBrowser();
+
+  const PESO: Record<string, number> = {
+    "Presidente": 40, "Presidenta": 40,
+    "Vicepresidente": 25, "Vicepresidenta": 25,
+    "Responsable": 30,
+    "Secretario": 15, "Secretaria": 15,
+    "Tesorero": 12, "Tesorera": 12,
+    "Miembro": 5
+  };
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -52,6 +65,18 @@ export default function ContactoPage() {
       .eq("participante_id", id)
       .order("fecha", { ascending: false });
     if (sq.data) setStand(sq.data as any);
+
+    const ppq = await sb.from("participaciones")
+      .select("cargo, comision:comisiones(codigo,nombre,tipo)")
+      .eq("participante_id", id);
+    if (ppq.data) {
+      const norm = ppq.data.map((r: any) => ({
+        cargo: r.cargo as string | null,
+        comision: (Array.isArray(r.comision) ? r.comision[0] : r.comision) ?? null
+      }));
+      norm.sort((a, b) => (PESO[b.cargo ?? "Miembro"] ?? 5) - (PESO[a.cargo ?? "Miembro"] ?? 5));
+      setParticipaciones(norm);
+    }
   }, [id, sb]);
 
   useEffect(() => { setMe(getRepresentante()); load(); }, [load]);
@@ -167,7 +192,26 @@ export default function ContactoPage() {
             {p.cargo_principal}
           </div>
         )}
-        {p.roles_raw && <div className="mt-3 text-xs text-slate-500">{p.roles_raw}</div>}
+        {participaciones.length > 0 && (
+          <div className="mt-3">
+            <div className="label mb-1">Roles UINL</div>
+            <div className="flex flex-wrap gap-1.5">
+              {participaciones.map((pp, i) => (
+                <span
+                  key={`${pp.comision?.codigo ?? "x"}-${i}`}
+                  className="inline-flex items-center rounded-md bg-slate-50 px-2 py-1 text-[11px] ring-1 ring-slate-200"
+                >
+                  <span className="font-semibold text-brand-700">{pp.cargo ?? "Miembro"}</span>
+                  <span className="mx-1.5 text-slate-300">·</span>
+                  <span className="text-slate-700">{pp.comision?.nombre ?? pp.comision?.codigo ?? "—"}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+        {p.roles_raw && participaciones.length === 0 && (
+          <div className="mt-3 text-xs text-slate-500">{p.roles_raw}</div>
+        )}
         <div className="mt-3 flex flex-wrap gap-3 text-sm">
           {p.email    && <a href={`mailto:${p.email}`} className="text-brand-700 underline underline-offset-2">{p.email}</a>}
           {p.telefono && <a href={`tel:${p.telefono}`}  className="text-brand-700 underline underline-offset-2 num">{p.telefono}</a>}
