@@ -141,9 +141,10 @@ async function importParticipantes() {
   if (!ws) throw new Error(`No se encontró la hoja '${SHEET_PARTICIPANTES}'`);
   const rows: any[] = XLSX.utils.sheet_to_json(ws, { defval: null });
 
-  // ya cargados los países: traer su {nombre→id} para FK
-  const { data: paisesDb } = await sb.from("paises").select("id,nombre");
+  // ya cargados los países: traer su {nombre→id} para FK + continente para fallback
+  const { data: paisesDb } = await sb.from("paises").select("id,nombre,continente");
   const nombreToId = new Map((paisesDb ?? []).map(p => [p.nombre.toLowerCase(), p.id]));
+  const idToContinente = new Map((paisesDb ?? []).map(p => [p.id, p.continente]));
 
   // aliases conocidos: pais_label del Excel "Inscriptos" → id en paises
   const ALIASES: Record<string, string> = {
@@ -190,12 +191,14 @@ async function importParticipantes() {
     const rolesRaw = row["Miembro de:"]?.toString().trim() || null;
 
     // upsert participante por (nombre + país) — no hay id estable en el Excel
+    const continenteExcel = normContinente(row["Continente"]);
+    const continenteFinal = continenteExcel ?? (paisId ? (idToContinente.get(paisId) ?? null) : null);
     const { data: ins, error } = await sb.from("participantes")
       .upsert({
         nombre_completo: nombre,
         pais_id: paisId,
         pais_label: paisLabel,
-        continente: normContinente(row["Continente"]),
+        continente: continenteFinal,
         email: row["Email"]?.toString().trim() || null,
         telefono: row["Teléfono"]?.toString().trim() || null,
         organizacion: null, // no viene en el Excel; se puede enriquecer luego desde paises.organizacion_notarial
