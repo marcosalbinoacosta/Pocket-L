@@ -6,7 +6,18 @@ import EstadoBadge from "@/components/ui/EstadoBadge";
 import { fmtFecha } from "@/lib/utils";
 
 interface Stats { total: number; pendientes: number; contactados: number; alta_prioridad: number; no_interesado: number }
-interface StandStats { total: number; hoy: number; ultima_semana: number; ligados_uinl: number; paises_distintos: number; con_proximos_pasos: number }
+interface StandStats {
+  total: number;
+  hoy: number;
+  ultima_semana: number;
+  ligados_uinl: number;
+  paises_distintos: number;
+  con_proximos_pasos: number;
+  accion_reunion: number;
+  accion_visita: number;
+  accion_cotizacion: number;
+  accion_info: number;
+}
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
@@ -99,21 +110,26 @@ export default function DashboardPage() {
         </div>
         <div className="mt-4 grid grid-cols-4 gap-2 text-center text-[11px]">
           <div>
-            <div className="num text-base font-semibold text-ink">{standStats?.hoy ?? "—"}</div>
-            <div className="label mt-0.5">Hoy</div>
+            <div className="num text-base font-semibold text-ink">{standStats?.accion_reunion ?? "—"}</div>
+            <div className="label mt-0.5">Reunión</div>
           </div>
           <div>
-            <div className="num text-base font-semibold text-ink">{standStats?.ultima_semana ?? "—"}</div>
-            <div className="label mt-0.5">7 días</div>
+            <div className="num text-base font-semibold text-ink">{standStats?.accion_visita ?? "—"}</div>
+            <div className="label mt-0.5">Visita</div>
           </div>
           <div>
-            <div className="num text-base font-semibold text-ink">{standStats?.ligados_uinl ?? "—"}</div>
-            <div className="label mt-0.5">UINL</div>
+            <div className="num text-base font-semibold text-ink">{standStats?.accion_cotizacion ?? "—"}</div>
+            <div className="label mt-0.5">Cotización</div>
           </div>
           <div>
-            <div className="num text-base font-semibold text-ink">{standStats?.paises_distintos ?? "—"}</div>
-            <div className="label mt-0.5">Países</div>
+            <div className="num text-base font-semibold text-ink">{standStats?.accion_info ?? "—"}</div>
+            <div className="label mt-0.5">Info</div>
           </div>
+        </div>
+        <div className="mt-3 flex justify-center gap-3 text-[11px] text-slate-500">
+          <span><span className="num font-semibold text-ink">{standStats?.ligados_uinl ?? "—"}</span> UINL</span>
+          <span className="text-slate-300">·</span>
+          <span><span className="num font-semibold text-ink">{standStats?.paises_distintos ?? "—"}</span> países</span>
         </div>
       </Link>
 
