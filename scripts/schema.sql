@@ -6,6 +6,13 @@
 create extension if not exists "uuid-ossp";
 create extension if not exists "pgcrypto";
 create extension if not exists "pg_trgm";
+create extension if not exists "unaccent";
+
+-- wrapper IMMUTABLE para usar unaccent() en generated columns / indices
+create or replace function public.f_unaccent(text)
+returns text
+language sql immutable parallel safe strict
+as $$ select extensions.unaccent('extensions.unaccent', $1) $$;
 
 -- -----------------------------------------------------------------------------
 -- PAÍSES (catálogo enriquecido con CUADRO INFO RESUMEN)
@@ -77,13 +84,13 @@ create table if not exists participantes (
   foto_url text,
   notas_publicas text,
   search_text text generated always as (
-    lower(
+    public.f_unaccent(lower(
       coalesce(nombre_completo,'') || ' ' ||
       coalesce(pais_label,'') || ' ' ||
       coalesce(organizacion,'') || ' ' ||
       coalesce(cargo_principal,'') || ' ' ||
       coalesce(roles_raw,'')
-    )
+    ))
   ) stored,
   created_at timestamptz default now()
 );

@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase";
 import { codigoPais } from "@/lib/country-codes";
+import { quitarAcentos } from "@/lib/utils";
 import type {
   CanalContacto,
   DesarrolloTipo,
@@ -160,10 +161,11 @@ export default function StandContactoForm({ initial, lockedParticipante, submitL
     if (q.length < 2) { setPartSugs([]); return; }
     let alive = true;
     const t = setTimeout(async () => {
+      const term = quitarAcentos(q.toLowerCase());
       const { data } = await sb
         .from("participantes")
         .select("id,nombre_completo,pais_id,pais_label,email,telefono,organizacion,cargo_principal")
-        .ilike("nombre_completo", `%${q}%`)
+        .ilike("search_text", `%${term}%`)
         .limit(8);
       if (alive) setPartSugs((data ?? []) as any);
     }, 200);

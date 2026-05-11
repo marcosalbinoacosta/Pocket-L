@@ -4,6 +4,7 @@ import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabase";
 import type { Pais } from "@/lib/types";
 import { fmtMillones, nivelSeguridad, segLabel, segColor } from "@/lib/format";
+import { quitarAcentos } from "@/lib/utils";
 
 type Sort = "consumo" | "notarios" | "habitantes" | "inscriptos" | "nombre";
 
@@ -37,8 +38,11 @@ export default function PaisesPage() {
     if (filtro === "papel_seguridad") r = r.filter(x => nivelSeguridad(x.caracteristicas_tecnicas) === "alta");
     if (filtro === "con_inscriptos")  r = r.filter(x => x.inscriptos > 0);
     if (q.trim()) {
-      const term = q.trim().toLowerCase();
-      r = r.filter(x => (x.nombre.toLowerCase().includes(term) || (x.organizacion_notarial ?? "").toLowerCase().includes(term)));
+      const term = quitarAcentos(q.trim().toLowerCase());
+      r = r.filter(x =>
+        quitarAcentos(x.nombre.toLowerCase()).includes(term) ||
+        quitarAcentos((x.organizacion_notarial ?? "").toLowerCase()).includes(term)
+      );
     }
     const arr = [...r];
     arr.sort((a, b) => {

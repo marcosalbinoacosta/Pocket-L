@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase";
-import { fmtFecha } from "@/lib/utils";
+import { fmtFecha, quitarAcentos } from "@/lib/utils";
 import type { ProximoPaso } from "@/lib/types";
 
 type Row = {
@@ -52,11 +52,11 @@ export default function StandListPage() {
 
   const filtered = useMemo(() => {
     if (!rows) return null;
-    const term = q.trim().toLowerCase();
+    const term = quitarAcentos(q.trim().toLowerCase());
     return rows.filter(r => {
       if (filtro !== "todos" && !(r.p15_proximos_pasos ?? []).includes(filtro)) return false;
       if (!term) return true;
-      const blob = `${r.contacto_nombre} ${r.institucion ?? ""} ${r.pais_label ?? ""} ${r.email ?? ""}`.toLowerCase();
+      const blob = quitarAcentos(`${r.contacto_nombre} ${r.institucion ?? ""} ${r.pais_label ?? ""} ${r.email ?? ""}`.toLowerCase());
       return blob.includes(term);
     });
   }, [rows, q, filtro]);

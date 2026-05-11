@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabase";
 import type { ParticipanteConEstado } from "@/lib/types";
+import { quitarAcentos } from "@/lib/utils";
 import EstadoBadge from "./EstadoBadge";
 
 interface Props {
@@ -26,7 +27,7 @@ export default function SearchBar({
   const sb = useMemo(() => supabaseBrowser(), []);
 
   useEffect(() => {
-    const term = q.trim().toLowerCase();
+    const term = quitarAcentos(q.trim().toLowerCase());
     if (!term) { setResults([]); setLoading(false); return; }
     setLoading(true);
     const myReq = ++reqId.current;
