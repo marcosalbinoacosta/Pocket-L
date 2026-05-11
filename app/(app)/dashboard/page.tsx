@@ -6,7 +6,7 @@ import EstadoBadge from "@/components/ui/EstadoBadge";
 import { fmtFecha } from "@/lib/utils";
 
 interface Stats { total: number; pendientes: number; contactados: number; alta_prioridad: number; no_interesado: number }
-interface StandStats { total: number; hoy: number; ultima_semana: number; ligados_uinl: number; paises_distintos: number }
+interface StandStats { total: number; hoy: number; ultima_semana: number; ligados_uinl: number; paises_distintos: number; con_proximos_pasos: number }
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
@@ -46,6 +46,10 @@ export default function DashboardPage() {
     ? Math.round((stats.contactados / stats.total) * 100)
     : 0;
 
+  const standPct = standStats && standStats.total > 0
+    ? Math.round((standStats.con_proximos_pasos / standStats.total) * 100)
+    : 0;
+
   return (
     <main className="app-shell">
       <h1 className="app-h1 mb-4">Equipo</h1>
@@ -82,26 +86,33 @@ export default function DashboardPage() {
       <Link href="/stand" className="card card-hover card-pad block active:bg-brand-50">
         <div className="flex items-baseline justify-between">
           <div>
-            <div className="label">Total cargados</div>
-            <div className="num mt-1 text-3xl font-bold text-brand-700">{standStats?.total ?? "—"}</div>
+            <div className="label">Con próximo paso</div>
+            <div className="mt-1">
+              <span className="num text-3xl font-bold text-brand-700">{standStats?.con_proximos_pasos ?? "—"}</span>
+              <span className="num text-base text-slate-400"> / {standStats?.total ?? "—"}</span>
+            </div>
           </div>
-          <div className="text-right">
-            <div className="label">Hoy</div>
-            <div className="num mt-1 text-2xl font-bold text-gold-600">{standStats?.hoy ?? "—"}</div>
-          </div>
+          <div className="num text-2xl font-bold text-gold-600">{standPct}%</div>
         </div>
-        <div className="mt-3 grid grid-cols-3 gap-2 text-center text-[11px]">
+        <div className="mt-3 h-2 w-full rounded-full bg-slate-100">
+          <div className="h-full rounded-full bg-gold-grad transition-[width] duration-500" style={{ width: `${standPct}%` }} />
+        </div>
+        <div className="mt-4 grid grid-cols-4 gap-2 text-center text-[11px]">
+          <div>
+            <div className="num text-base font-semibold text-ink">{standStats?.hoy ?? "—"}</div>
+            <div className="label mt-0.5">Hoy</div>
+          </div>
           <div>
             <div className="num text-base font-semibold text-ink">{standStats?.ultima_semana ?? "—"}</div>
-            <div className="label">7 días</div>
+            <div className="label mt-0.5">7 días</div>
           </div>
           <div>
             <div className="num text-base font-semibold text-ink">{standStats?.ligados_uinl ?? "—"}</div>
-            <div className="label">UINL</div>
+            <div className="label mt-0.5">UINL</div>
           </div>
           <div>
             <div className="num text-base font-semibold text-ink">{standStats?.paises_distintos ?? "—"}</div>
-            <div className="label">Países</div>
+            <div className="label mt-0.5">Países</div>
           </div>
         </div>
       </Link>

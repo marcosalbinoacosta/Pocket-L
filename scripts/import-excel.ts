@@ -25,8 +25,9 @@ if (!URL || !KEY) { console.error("Faltan NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SE
 const sb = createClient(URL, KEY, { auth: { persistSession: false } });
 
 const ROOT = process.cwd();
-const F_PARTICIPANTES = path.join(ROOT, "Bolivia. Participantes y miembros de la UINL - NORMALIZADO v2.xlsx");
+const F_PARTICIPANTES = path.join(ROOT, "..", "Listados de participantes y autoridades v5. FINAL.xlsx");
 const F_PAISES        = path.join(ROOT, "CUADRO INFO RESUMEN.xlsx");
+const SHEET_PARTICIPANTES = "Inscriptos 30-4. Sin duplicados";
 
 // ---------- Mapeos ----------
 // columnas del Excel -> código de comisión en DB
@@ -134,10 +135,10 @@ async function importPaises() {
 
 // ---------- Importar participantes ----------
 async function importParticipantes() {
-  console.log("\n→ Participantes (NORMALIZADO v2)");
+  console.log("\n→ Participantes (FINAL v5)");
   const wb = XLSX.readFile(F_PARTICIPANTES);
-  const ws = wb.Sheets["Inscriptos. Sin part duplicados"];
-  if (!ws) throw new Error("No se encontró la hoja 'Inscriptos. Sin part duplicados'");
+  const ws = wb.Sheets[SHEET_PARTICIPANTES];
+  if (!ws) throw new Error(`No se encontró la hoja '${SHEET_PARTICIPANTES}'`);
   const rows: any[] = XLSX.utils.sheet_to_json(ws, { defval: null });
 
   // ya cargados los países: traer su {nombre→id} para FK
