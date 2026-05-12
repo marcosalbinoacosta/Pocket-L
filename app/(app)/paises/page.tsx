@@ -5,15 +5,17 @@ import { supabaseBrowser } from "@/lib/supabase";
 import type { Pais } from "@/lib/types";
 import { fmtMillones, nivelSeguridad, segLabel, segColor } from "@/lib/format";
 import { quitarAcentos } from "@/lib/utils";
+import { PAISES_OBJETIVO } from "@/lib/paises-objetivo";
 
 type Sort = "consumo" | "notarios" | "habitantes" | "inscriptos" | "nombre";
+type Filtro = "todos" | "objetivos" | "sin_seguridad" | "papel_seguridad" | "con_inscriptos";
 
 interface PaisRow extends Pais { inscriptos: number }
 
 export default function PaisesPage() {
   const [rows, setRows] = useState<PaisRow[] | null>(null);
   const [sort, setSort] = useState<Sort>("nombre");
-  const [filtro, setFiltro] = useState<"todos" | "sin_seguridad" | "papel_seguridad" | "con_inscriptos">("todos");
+  const [filtro, setFiltro] = useState<Filtro>("todos");
   const [q, setQ] = useState("");
 
   useEffect(() => {
@@ -34,6 +36,7 @@ export default function PaisesPage() {
   const visible = useMemo(() => {
     if (!rows) return null;
     let r = rows;
+    if (filtro === "objetivos")       r = r.filter(x => PAISES_OBJETIVO.has(x.id));
     if (filtro === "sin_seguridad")   r = r.filter(x => nivelSeguridad(x.caracteristicas_tecnicas) === "nula");
     if (filtro === "papel_seguridad") r = r.filter(x => nivelSeguridad(x.caracteristicas_tecnicas) === "alta");
     if (filtro === "con_inscriptos")  r = r.filter(x => x.inscriptos > 0);
@@ -83,6 +86,7 @@ export default function PaisesPage() {
       <div className="noscroll mb-2 flex gap-1.5 overflow-x-auto pb-1">
         {([
           ["todos","Todos"],
+          ["objetivos","Objetivos"],
           ["con_inscriptos","Con inscriptos"],
           ["sin_seguridad","Sin seguridad"],
           ["papel_seguridad","Papel seguridad"]
