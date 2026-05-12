@@ -1,16 +1,37 @@
 /**
- * Limpieza pre-congreso:
+ * ============================================================================
+ *   SCRIPT DESTRUCTIVO — DESHABILITADO POR DEFECTO
+ * ============================================================================
+ *
+ * Borra participantes que no estén en el Excel (con cascade a contactos /
+ * notas / participaciones), borra TODAS las notas, y resetea TODOS los
+ * contactos a 'pendiente'. Fue escrito para correrse UNA sola vez, antes
+ * del congreso. Correrlo DURANTE el congreso = perder el trabajo del equipo.
+ *
+ * Para reactivarlo (con conciencia plena de lo que hace):
+ *   $env:I_REALLY_MEAN_IT = "yes"
+ *   npx tsx scripts/cleanup-prod.DANGEROUS.disabled.ts
+ *
+ * Limpieza pre-congreso original:
  *  1. Borra participantes fantasma (los que están en DB pero NO en FINAL v5)
  *  2. Borra todas las notas (eran de prueba)
  *  3. Resetea todos los contactos a 'pendiente' y representante_id=null
- *
- * Uso: npx tsx scripts/cleanup-prod.ts
  */
 import { config } from "dotenv";
 config({ path: ".env.local" });
 import * as XLSX from "xlsx";
 import * as path from "path";
 import { createClient } from "@supabase/supabase-js";
+
+if (process.env.I_REALLY_MEAN_IT !== "yes") {
+  console.error("");
+  console.error("  ✗ DETENIDO: este script es DESTRUCTIVO.");
+  console.error("    Borra participantes, notas y resetea contactos.");
+  console.error("    Si realmente querés correrlo, ejecutá primero:");
+  console.error("      $env:I_REALLY_MEAN_IT = \"yes\"");
+  console.error("");
+  process.exit(1);
+}
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;

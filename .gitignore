@@ -12,3 +12,6 @@ next-env.d.ts
 *.xlsx
 .claude/settings.local.json
 scripts/seed-representantes.ts
+
+# Snapshots de DB generados por backup-snapshot.ts — son data, no código
+backups/
