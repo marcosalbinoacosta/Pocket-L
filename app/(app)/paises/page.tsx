@@ -12,7 +12,7 @@ interface PaisRow extends Pais { inscriptos: number }
 
 export default function PaisesPage() {
   const [rows, setRows] = useState<PaisRow[] | null>(null);
-  const [sort, setSort] = useState<Sort>("consumo");
+  const [sort, setSort] = useState<Sort>("nombre");
   const [filtro, setFiltro] = useState<"todos" | "sin_seguridad" | "papel_seguridad" | "con_inscriptos">("todos");
   const [q, setQ] = useState("");
 
@@ -105,11 +105,11 @@ export default function PaisesPage() {
           onChange={(e) => setSort(e.target.value as Sort)}
           className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-ink focus:border-brand-400 focus:outline-none"
         >
+          <option value="nombre">Nombre A→Z</option>
           <option value="consumo">Consumo ↓</option>
           <option value="notarios">Notarios ↓</option>
           <option value="habitantes">Habitantes ↓</option>
           <option value="inscriptos">Inscriptos ↓</option>
-          <option value="nombre">Nombre A→Z</option>
         </select>
       </div>
 

@@ -33,8 +33,7 @@ export default function DashboardPage() {
       const a = await sb.from("contactos")
         .select("estado,alta_prioridad,updated_at,participante:participantes(id,nombre_completo,pais_label,cargo_principal)")
         .eq("alta_prioridad", true)
-        .order("updated_at", { ascending: false })
-        .limit(20);
+        .order("updated_at", { ascending: false });
       const n = await sb.from("notas")
         .select("id,texto,created_at,rep:representantes(nombre,color),participante:participantes(id,nombre_completo)")
         .order("created_at", { ascending: false })
