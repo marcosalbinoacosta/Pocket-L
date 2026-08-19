@@ -17,9 +17,19 @@ export default function ParticipantCard({ p }: { p: ParticipanteConEstado }) {
       className="card card-hover block p-3 active:bg-brand-50"
     >
       <div className="flex items-start gap-3">
-        <div className="ph !min-h-0 h-10 w-10 shrink-0 rounded-full font-mono text-[11px] !text-brand-700">
-          {initials || "—"}
-        </div>
+        {p.foto_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={p.foto_url}
+            alt=""
+            loading="lazy"
+            className="h-10 w-10 shrink-0 rounded-full border border-slate-200 object-cover"
+          />
+        ) : (
+          <div className="ph !min-h-0 h-10 w-10 shrink-0 rounded-full font-mono text-[11px] !text-brand-700">
+            {initials || "—"}
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           <div className="font-semibold text-ink truncate">{p.nombre_completo}</div>
           <div className="text-xs text-slate-500 truncate">

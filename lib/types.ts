@@ -19,6 +19,23 @@ export interface Pais {
   notas_comerciales: string | null;
 }
 
+export type OrganizacionTipo = "colegio_estatal" | "consejo_nacional" | "otro";
+
+export interface Organizacion {
+  id: string;
+  pais_id: string;
+  nombre: string;
+  subdivision: string | null;
+  tipo: OrganizacionTipo;
+  autoridad: string | null;
+  cantidad_notarios: number | null;
+  consumo_anual: number | null;
+  foja_tipo: string | null;
+  emisor_fojas: boolean | null;
+  impresor_fojas: string | null;
+  notas_comerciales: string | null;
+}
+
 export interface Comision {
   codigo: string;
   nombre: string;

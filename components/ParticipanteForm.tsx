@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase";
 import { codigoPais } from "@/lib/country-codes";
+import FotoPicker from "@/components/ui/FotoPicker";
 import type { Participante, Pais } from "@/lib/types";
 
 export interface ParticipanteFormValues {
@@ -16,6 +17,7 @@ export interface ParticipanteFormValues {
   roles_raw: string | null;
   prioridad_score: number;
   notas_publicas: string | null;
+  foto_url: string | null;
 }
 
 interface Props {
@@ -44,6 +46,7 @@ export default function ParticipanteForm({ initial, submitLabel, onSubmit }: Pro
   const [rolesRaw, setRolesRaw] = useState(initial?.roles_raw ?? "");
   const [prioridad, setPrioridad] = useState<number>(initial?.prioridad_score ?? 0);
   const [notasPub, setNotasPub] = useState(initial?.notas_publicas ?? "");
+  const [fotoUrl, setFotoUrl] = useState<string | null>(initial?.foto_url ?? null);
 
   useEffect(() => {
     sb.from("paises").select("*").order("nombre").then(({ data }) => setPaises((data ?? []) as Pais[]));
@@ -101,7 +104,8 @@ export default function ParticipanteForm({ initial, submitLabel, onSubmit }: Pro
         cargo_principal: cargo.trim() || null,
         roles_raw: rolesRaw.trim() || null,
         prioridad_score: Number.isFinite(prioridad) ? Math.max(0, Math.min(100, prioridad)) : 0,
-        notas_publicas: notasPub.trim() || null
+        notas_publicas: notasPub.trim() || null,
+        foto_url: fotoUrl
       });
     } catch (e: any) {
       setErr(e?.message ?? "Error al guardar");
@@ -112,6 +116,8 @@ export default function ParticipanteForm({ initial, submitLabel, onSubmit }: Pro
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      <FotoPicker value={fotoUrl} onChange={setFotoUrl} nombre={nombre} />
+
       <div>
         <label className="label mb-1 block">Nombre completo *</label>
         <input

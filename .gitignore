@@ -10,6 +10,14 @@ out
 *.tsbuildinfo
 next-env.d.ts
 *.xlsx
+*.pptx
+
+# Datos derivados de la investigación comercial. El repo es público: las fotos
+# son de personas identificables y el contenido del PPT es material interno.
+# Las fotos viven en Supabase Storage, que es el sistema de registro real; acá
+# se regeneran con scripts/extraer_fotos_mexico.py a partir del PPT original.
+scripts/fotos_mexico/
+extracted_content.txt
 .claude/settings.local.json
 scripts/seed-representantes.ts
 

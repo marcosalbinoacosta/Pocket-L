@@ -14,7 +14,8 @@ const ALLOWED = [
   "cargo_principal",
   "roles_raw",
   "prioridad_score",
-  "notas_publicas"
+  "notas_publicas",
+  "foto_url"
 ] as const;
 
 export async function PATCH(

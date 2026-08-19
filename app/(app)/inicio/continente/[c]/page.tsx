@@ -14,7 +14,7 @@ export default function InicioContinentePage() {
   useEffect(() => {
     const sb = supabaseBrowser();
     sb.from("participantes")
-      .select("id,nombre_completo,pais_label,continente,organizacion,cargo_principal,roles_raw,prioridad_score,contacto:contactos(estado,alta_prioridad,updated_at,representante_id)")
+      .select("id,nombre_completo,pais_label,continente,organizacion,cargo_principal,roles_raw,prioridad_score,foto_url,contacto:contactos(estado,alta_prioridad,updated_at,representante_id)")
       .eq("continente", continente)
       .order("prioridad_score", { ascending: false })
       .order("nombre_completo")

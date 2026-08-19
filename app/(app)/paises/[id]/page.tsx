@@ -1,25 +1,56 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabase";
 import ParticipantCard from "@/components/ui/ParticipantCard";
-import type { Pais, ParticipanteConEstado } from "@/lib/types";
+import type { Pais, ParticipanteConEstado, Organizacion } from "@/lib/types";
 import { fmtMillones, fmtNumero, nivelSeguridad, segLabel, segColor } from "@/lib/format";
+import { quitarAcentos } from "@/lib/utils";
+
+// Cuántos colegios se muestran antes de pedir "ver todos". México tiene 33 y
+// desplegados empujan a los inscriptos fuera de la pantalla, que es lo que
+// más se consulta.
+const COLEGIOS_VISIBLES = 5;
+
+type PaisConRollup = Pais & { cantidad_notarios_total: number | null; consumo_anual_total: number | null; cantidad_organizaciones: number };
 
 export default function PaisDetallePage() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
-  const [pais, setPais] = useState<Pais | null>(null);
+  const [pais, setPais] = useState<PaisConRollup | null>(null);
   const [items, setItems] = useState<ParticipanteConEstado[] | null>(null);
+  const [colegios, setColegios] = useState<Organizacion[] | null>(null);
+  const [verTodos, setVerTodos] = useState(false);
+  const [filtro, setFiltro] = useState("");
+
+  // Con la lista desplegada se puede filtrar por estado o por autoridad; sin
+  // desplegar se muestran los de mayor consumo, que es como vienen ordenados.
+  const colegiosVisibles = useMemo(() => {
+    if (!colegios) return [];
+    const q = quitarAcentos(filtro.trim().toLowerCase());
+    if (!verTodos) return colegios.slice(0, COLEGIOS_VISIBLES);
+    if (!q) return colegios;
+    return colegios.filter(o =>
+      quitarAcentos(`${o.subdivision ?? ""} ${o.nombre} ${o.autoridad ?? ""}`.toLowerCase()).includes(q)
+    );
+  }, [colegios, verTodos, filtro]);
 
   useEffect(() => {
     if (!id) return;
     const sb = supabaseBrowser();
-    sb.from("paises").select("*").eq("id", id).single()
-      .then(({ data }) => setPais(data as Pais));
+    sb.from("v_paises_con_organizaciones").select("*").eq("id", id).single()
+      .then(({ data }) => setPais(data as PaisConRollup));
+    sb.from("organizaciones").select("*").eq("pais_id", id).order("consumo_anual", { ascending: false, nullsFirst: false })
+      .then(({ data }) => setColegios((data ?? []) as Organizacion[]));
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    setItems(null);
+    const sb = supabaseBrowser();
     sb.from("participantes")
-      .select("id,nombre_completo,pais_label,continente,organizacion,cargo_principal,roles_raw,prioridad_score,contacto:contactos(estado,alta_prioridad,updated_at,representante_id)")
+      .select("id,nombre_completo,pais_label,continente,organizacion,cargo_principal,roles_raw,prioridad_score,foto_url,contacto:contactos(estado,alta_prioridad,updated_at,representante_id)")
       .eq("pais_id", id)
       .order("prioridad_score", { ascending: false })
       .order("nombre_completo")
@@ -37,8 +68,10 @@ export default function PaisDetallePage() {
   }
 
   const seg = nivelSeguridad(pais.caracteristicas_tecnicas);
-  const consumoPerNotario = pais.consumo_anual && pais.cantidad_notarios
-    ? Math.round(pais.consumo_anual / pais.cantidad_notarios)
+  const consumoTotal = pais.consumo_anual_total ?? pais.consumo_anual;
+  const notariosTotal = pais.cantidad_notarios_total ?? pais.cantidad_notarios;
+  const consumoPerNotario = consumoTotal && notariosTotal
+    ? Math.round(consumoTotal / notariosTotal)
     : null;
 
   return (
@@ -77,13 +110,18 @@ export default function PaisDetallePage() {
         </div>
       </header>
 
-      {/* grid de métricas comerciales */}
+      {/* grid de métricas comerciales — si hay organizaciones (país federal), el total es la suma real */}
       <div className="mt-3 grid grid-cols-2 gap-2">
-        <Metric label="Consumo anual"   value={fmtMillones(pais.consumo_anual)} unit="fojas" big />
-        <Metric label="Notarios"        value={fmtNumero(pais.cantidad_notarios)} />
+        <Metric label="Consumo anual"   value={fmtMillones(consumoTotal)} unit="fojas" big />
+        <Metric label="Notarios"        value={fmtNumero(notariosTotal)} />
         <Metric label="Habitantes"      value={fmtMillones(pais.cantidad_habitantes)} />
         <Metric label="Fojas/notario"   value={consumoPerNotario != null ? fmtNumero(consumoPerNotario) : "—"} unit="x año" />
       </div>
+      {pais.cantidad_organizaciones > 0 && (
+        <p className="mt-1.5 text-[11px] text-slate-400">
+          Suma de {pais.cantidad_organizaciones} colegios estatales, no el agregado nacional genérico.
+        </p>
+      )}
 
       {/* extras */}
       {(pais.impresor_fojas || pais.consejo_emisor_fojas != null) && (
@@ -115,6 +153,76 @@ export default function PaisDetallePage() {
           <div className="label mb-0.5 !text-amber-700">Oportunidad media</div>
           Volumen alto ({fmtMillones(pais.consumo_anual)} fojas) con esquema híbrido — potencial de upgrade a digital end-to-end.
         </div>
+      )}
+
+      {/* colegios estatales (países federales, ej. México) */}
+      {colegios !== null && colegios.length > 0 && (
+        <>
+          <div className="mt-6 mb-2 flex items-end justify-between">
+            <h2 className="app-h2">Colegios</h2>
+            <span className="label">
+              {verTodos && filtro.trim()
+                ? `${colegiosVisibles.length} de ${colegios.length}`
+                : colegios.length}
+            </span>
+          </div>
+
+          {verTodos && colegios.length > COLEGIOS_VISIBLES && (
+            <input
+              value={filtro}
+              onChange={(e) => setFiltro(e.target.value)}
+              placeholder="Filtrar por estado o autoridad…"
+              className="input mb-2"
+            />
+          )}
+
+          <div className="card overflow-hidden">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>Colegio</th>
+                  <th className="text-right">Notarios</th>
+                  <th className="text-right">Consumo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {colegiosVisibles.map(o => (
+                  <tr key={o.id} className="cursor-pointer">
+                    <td>
+                      <Link href={`/colegios/${o.id}`} className="block">
+                        <div className="font-semibold text-ink">{o.subdivision ?? o.nombre}</div>
+                        {o.autoridad && <div className="text-[11px] text-slate-400">{o.autoridad}</div>}
+                        {o.tipo === "consejo_nacional" && (
+                          <span className="mt-0.5 inline-flex rounded-full bg-slate-100 px-1.5 py-0 text-[9px] font-semibold uppercase tracking-smallcaps text-slate-500">
+                            Coordina, no compra
+                          </span>
+                        )}
+                      </Link>
+                    </td>
+                    <td className="num text-right text-ink">{fmtNumero(o.cantidad_notarios)}</td>
+                    <td className="num text-right text-ink">{fmtMillones(o.consumo_anual)}</td>
+                  </tr>
+                ))}
+                {colegiosVisibles.length === 0 && (
+                  <tr>
+                    <td colSpan={3} className="py-4 text-center text-xs text-slate-400">
+                      Ningún colegio coincide con «{filtro}»
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {colegios.length > COLEGIOS_VISIBLES && (
+            <button
+              onClick={() => { setVerTodos(v => !v); setFiltro(""); }}
+              className="btn-secondary mt-2 w-full !py-2 !text-sm"
+            >
+              {verTodos ? "Ver menos" : `Ver los ${colegios.length} colegios`}
+            </button>
+          )}
+        </>
       )}
 
       {/* inscriptos */}

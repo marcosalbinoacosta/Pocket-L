@@ -10,7 +10,7 @@ import { PAISES_OBJETIVO } from "@/lib/paises-objetivo";
 type Sort = "consumo" | "notarios" | "habitantes" | "inscriptos" | "nombre";
 type Filtro = "todos" | "objetivos" | "sin_seguridad" | "papel_seguridad" | "con_inscriptos";
 
-interface PaisRow extends Pais { inscriptos: number }
+interface PaisRow extends Pais { inscriptos: number; consumo_anual_total: number | null; cantidad_notarios_total: number | null }
 
 export default function PaisesPage() {
   const [rows, setRows] = useState<PaisRow[] | null>(null);
@@ -21,7 +21,7 @@ export default function PaisesPage() {
   useEffect(() => {
     const sb = supabaseBrowser();
     (async () => {
-      const { data: paises } = await sb.from("paises").select("*");
+      const { data: paises } = await sb.from("v_paises_con_organizaciones").select("*");
       const { data: parts } = await sb.from("participantes").select("pais_id");
       const cnt: Record<string, number> = {};
       for (const p of parts ?? []) {
@@ -50,8 +50,8 @@ export default function PaisesPage() {
     const arr = [...r];
     arr.sort((a, b) => {
       switch (sort) {
-        case "consumo":     return (b.consumo_anual ?? 0) - (a.consumo_anual ?? 0);
-        case "notarios":    return (b.cantidad_notarios ?? 0) - (a.cantidad_notarios ?? 0);
+        case "consumo":     return (b.consumo_anual_total ?? 0) - (a.consumo_anual_total ?? 0);
+        case "notarios":    return (b.cantidad_notarios_total ?? 0) - (a.cantidad_notarios_total ?? 0);
         case "habitantes":  return (b.cantidad_habitantes ?? 0) - (a.cantidad_habitantes ?? 0);
         case "inscriptos":  return b.inscriptos - a.inscriptos;
         case "nombre":      return a.nombre.localeCompare(b.nombre);
@@ -61,7 +61,7 @@ export default function PaisesPage() {
   }, [rows, sort, filtro, q]);
 
   const total = rows?.length ?? 0;
-  const consumoTotal = (rows ?? []).reduce((s, r) => s + (r.consumo_anual ?? 0), 0);
+  const consumoTotal = (rows ?? []).reduce((s, r) => s + (r.consumo_anual_total ?? 0), 0);
 
   return (
     <main className="app-shell">
@@ -142,8 +142,8 @@ export default function PaisesPage() {
                         <div className="text-[11px] text-slate-400">{p.continente ?? "—"}</div>
                       </Link>
                     </td>
-                    <td className="num text-right text-ink">{fmtMillones(p.consumo_anual)}</td>
-                    <td className="num text-right text-ink">{fmtMillones(p.cantidad_notarios)}</td>
+                    <td className="num text-right text-ink">{fmtMillones(p.consumo_anual_total)}</td>
+                    <td className="num text-right text-ink">{fmtMillones(p.cantidad_notarios_total)}</td>
                     <td className="num text-right">
                       {p.inscriptos > 0
                         ? <span className="font-semibold text-brand-700">{p.inscriptos}</span>
