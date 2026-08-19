@@ -3,31 +3,48 @@
  *
  * Uso:
  *   1. Crear .env.local con NEXT_PUBLIC_SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY
- *   2. Pegar scripts/schema.sql en Supabase SQL Editor (una sola vez)
+ *   2. Pegar scripts/schema.sql (+ patch 013) en Supabase SQL Editor
  *   3. npm run import
+ *      -- o, para otra planilla --
+ *      npx tsx scripts/import-excel.ts --file="ruta.xlsx" --hoja="Hoja1"
  *
  * Lee:
- *   - "Bolivia. Participantes y miembros de la UINL - NORMALIZADO v2.xlsx"
- *      hoja "Inscriptos. Sin part duplicados" → tabla participantes (+ participaciones)
+ *   - "Listados de participantes y autoridades v5. FINAL.xlsx" (default)
+ *      hoja de inscriptos → tabla participantes (+ participaciones)
  *   - "CUADRO INFO RESUMEN.xlsx"
  *      hoja "Hoja1" → tabla paises (datos comerciales por país)
+ *
+ * Base única: la UINL es un solo evento que va rotando de país, así que todos
+ * los contactos viven juntos y el estado y las notas de cada persona se
+ * arrastran de un congreso al siguiente. Por eso el upsert es por nombre.
+ * Para nombres *parecidos* pero no idénticos (tildes, prefijos "Lic./Not./Pte.",
+ * ver Patch 013) se imprime un aviso para revisión manual; no se fusiona solo.
  */
 import { config } from "dotenv";
 config({ path: ".env.local" });
 import * as XLSX from "xlsx";
 import * as path from "path";
+import * as fs from "fs";
 import { createClient } from "@supabase/supabase-js";
-import { slug } from "../lib/utils";
+import { slug, normalizarNombrePersona } from "../lib/utils";
 
 const URL  = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 if (!URL || !KEY) { console.error("Faltan NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY"); process.exit(1); }
 const sb = createClient(URL, KEY, { auth: { persistSession: false } });
 
+// ---------- Args ----------
+function argVal(name: string, def: string): string {
+  const hit = process.argv.find(a => a.startsWith(`--${name}=`));
+  return hit ? hit.split("=").slice(1).join("=") : def;
+}
+
 const ROOT = process.cwd();
-const F_PARTICIPANTES = path.join(ROOT, "..", "Listados de participantes y autoridades v5. FINAL.xlsx");
+const F_PARTICIPANTES = argVal("file", path.join(ROOT, "..", "Listados de participantes y autoridades v5. FINAL.xlsx"));
 const F_PAISES        = path.join(ROOT, "CUADRO INFO RESUMEN.xlsx");
-const SHEET_PARTICIPANTES = "Inscriptos 30-4. Sin duplicados";
+const SHEET_PARTICIPANTES = argVal("hoja", "Inscriptos 30-4. Sin duplicados");
+
+const dedupeWarnings: { nombre: string; candidatos: { nombre_completo: string; pais_label: string | null; organizacion: string | null; similitud: number }[] }[] = [];
 
 // ---------- Mapeos ----------
 // columnas del Excel -> código de comisión en DB
@@ -170,7 +187,7 @@ async function importParticipantes() {
     return null;
   };
 
-  let ok = 0, sinFK = 0, skipped = 0;
+  let ok = 0, sinFK = 0, skipped = 0, avisos = 0;
   for (const row of rows) {
     if (!row["Delegado"]) continue;
     const nombre = String(row["Delegado"]).trim();
@@ -179,6 +196,20 @@ async function importParticipantes() {
     const paisLabel = row["País"]?.toString().trim() || null;
     const paisId = tryFK(paisLabel);
     if (!paisId && paisLabel) sinFK++;
+
+    // dedupe: candidatos parecidos que el upsert por nombre_completo exacto
+    // NO va a matchear (nombre distinto) — se avisan, no se fusionan solos.
+    const nombreNorm = normalizarNombrePersona(nombre);
+    const { data: similares } = await sb.rpc("buscar_participante_similar", {
+      p_nombre: nombreNorm, p_pais_id: paisId, p_umbral: 0.5
+    });
+    const candidatosReales = (similares ?? []).filter(
+      (s: any) => s.nombre_completo.trim().toLowerCase() !== nombre.trim().toLowerCase()
+    );
+    if (candidatosReales.length) {
+      avisos++;
+      dedupeWarnings.push({ nombre, candidatos: candidatosReales });
+    }
 
     // armar participaciones a partir de columnas
     const parts: { comision_codigo: string; cargo: string | null }[] = [];
@@ -223,13 +254,27 @@ async function importParticipantes() {
       );
       if (e2) console.error("  ✗ part", nombre, e2.message);
     }
+
     ok++;
   }
-  console.log(`   ✓ ${ok} participantes${sinFK ? `  (${sinFK} con país sin match)` : ""}${skipped ? `  · ${skipped} filas de totales descartadas` : ""}`);
+  console.log(`   ✓ ${ok} participantes${sinFK ? `  (${sinFK} con país sin match)` : ""}${skipped ? `  · ${skipped} filas de totales descartadas` : ""}${avisos ? `  · ${avisos} avisos de posible duplicado (ver reporte)` : ""}`);
+}
+
+function guardarReporteDedupe() {
+  if (!dedupeWarnings.length) return;
+  const file = path.join(ROOT, "scripts", "dedupe-report.json");
+  fs.writeFileSync(file, JSON.stringify(dedupeWarnings, null, 2), "utf-8");
+  console.log(`\n⚠ ${dedupeWarnings.length} posibles duplicados para revisar manualmente → ${path.relative(ROOT, file)}`);
+  for (const w of dedupeWarnings.slice(0, 10)) {
+    const top = w.candidatos[0];
+    console.log(`   "${w.nombre}" ~ "${top.nombre_completo}" (${(top.similitud * 100).toFixed(0)}%${top.pais_label ? `, ${top.pais_label}` : ""})`);
+  }
+  if (dedupeWarnings.length > 10) console.log(`   … y ${dedupeWarnings.length - 10} más en el archivo.`);
 }
 
 (async () => {
   await importPaises();
   await importParticipantes();
+  guardarReporteDedupe();
   console.log("\n✓ Listo");
 })().catch(e => { console.error(e); process.exit(1); });
