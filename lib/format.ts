@@ -1,10 +1,19 @@
 // Helpers de formato para datos comerciales
 
+/** Un decimal, coma como separador y sin el ",0" cuando es redondo: "4,5M", "100M".
+ *
+ *  Antes redondeaba a la unidad y eso deformaba las cifras comerciales: 1.350.000
+ *  se mostraba como "1M" (26% menos) y 4.500.000 como "5M" (11% más). El número
+ *  que se ve tiene que poder compararse contra el del informe sin sobresaltos. */
+function conUnidad(valor: number, sufijo: string): string {
+  return valor.toFixed(1).replace(/\.0$/, "").replace(".", ",") + sufijo;
+}
+
 export function fmtMillones(n: number | null | undefined): string {
   if (n == null) return "—";
-  if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(1).replace(/\.0$/, "") + "B";
-  if (n >= 1_000_000)     return Math.round(n / 1_000_000) + "M";
-  if (n >= 1_000)         return Math.round(n / 1_000) + "k";
+  if (n >= 1_000_000_000) return conUnidad(n / 1_000_000_000, "B");
+  if (n >= 1_000_000)     return conUnidad(n / 1_000_000, "M");
+  if (n >= 1_000)         return conUnidad(n / 1_000, "k");
   return String(n);
 }
 
