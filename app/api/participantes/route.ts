@@ -22,7 +22,8 @@ export async function POST(req: Request) {
     cargo_principal: body.cargo_principal || null,
     roles_raw: body.roles_raw || null,
     prioridad_score: typeof body.prioridad_score === "number" ? body.prioridad_score : 0,
-    notas_publicas: body.notas_publicas || null
+    notas_publicas: body.notas_publicas || null,
+    foto_url: body.foto_url || null
   };
 
   const { data, error } = await sb.from("participantes").insert(insert).select("id").single();

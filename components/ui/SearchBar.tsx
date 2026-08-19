@@ -35,7 +35,7 @@ export default function SearchBar({
       const tokens = term.split(/\s+/).filter(Boolean);
       let query = sb
         .from("participantes")
-        .select("id,nombre_completo,pais_label,continente,organizacion,cargo_principal,roles_raw,prioridad_score,contacto:contactos(estado,alta_prioridad,updated_at,representante_id)")
+        .select("id,nombre_completo,pais_label,continente,organizacion,cargo_principal,roles_raw,prioridad_score,foto_url,contacto:contactos(estado,alta_prioridad,updated_at,representante_id)")
         .order("prioridad_score", { ascending: false })
         .limit(limit);
       for (const tk of tokens) query = query.ilike("search_text", `%${tk}%`);
@@ -110,6 +110,15 @@ export default function SearchBar({
               className="card card-hover block p-3 active:bg-brand-50"
             >
               <div className="flex items-start gap-3">
+                {r.foto_url && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={r.foto_url}
+                    alt=""
+                    loading="lazy"
+                    className="h-10 w-10 shrink-0 rounded-full border border-slate-200 object-cover"
+                  />
+                )}
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold text-ink truncate">{r.nombre_completo}</div>
                   <div className="text-xs text-slate-500 truncate">

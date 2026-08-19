@@ -5,6 +5,7 @@ import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabase";
 import { getRepresentante } from "@/lib/auth";
 import EstadoBadge from "@/components/ui/EstadoBadge";
+import FotoAmpliable from "@/components/ui/FotoAmpliable";
 import { fmtFecha, estadoLabel } from "@/lib/utils";
 import { fmtMillones, nivelSeguridad, segLabel, segColor } from "@/lib/format";
 import type { Contacto, Estado, Nota, Pais, Participante, Representante, StandContacto } from "@/lib/types";
@@ -183,9 +184,16 @@ export default function ContactoPage() {
       </div>
 
       <header className="card card-pad">
-        <h1 className="text-xl font-bold text-ink">{p.nombre_completo}</h1>
-        <div className="mt-1 text-sm text-slate-600">
-          {p.pais_label}{p.organizacion ? ` · ${p.organizacion}` : ""}
+        <div className="flex items-start gap-3">
+          {p.foto_url && (
+            <FotoAmpliable src={p.foto_url} alt={p.nombre_completo} className="h-16 w-16" />
+          )}
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl font-bold text-ink">{p.nombre_completo}</h1>
+            <div className="mt-1 text-sm text-slate-600">
+              {p.pais_label}{p.organizacion ? ` · ${p.organizacion}` : ""}
+            </div>
+          </div>
         </div>
         {p.cargo_principal && (
           <div className="mt-2 inline-flex items-center rounded-md bg-gold-grad px-2 py-1 text-[11px] font-semibold uppercase tracking-smallcaps text-brand-900">
