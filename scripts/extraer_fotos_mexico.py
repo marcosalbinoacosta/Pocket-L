@@ -41,6 +41,25 @@ def slug(s: str) -> str:
     return s
 
 
+def autoridad(textos: list) -> str | None:
+    """El nombre del presidente es un cuadro de texto suelto, sin etiqueta que
+    lo identifique. Se descarta todo lo que sí sabemos qué es (título, cifras,
+    los párrafos descriptivos) y queda el nombre."""
+    for t in textos:
+        s = " ".join(t.split())
+        if len(s) > 70 or len(s) < 6:
+            continue
+        if re.search(r"colegio|consejo|existen|consumo|unidades|sistema|nivel federal|"
+                     r"consultor|sin\s+foto|paises seleccionados|notariado mexicano", s, re.I):
+            continue
+        if re.fullmatch(r"[\d.,\s]+", s):
+            continue
+        # un nombre propio trae al menos dos palabras que empiezan en mayúscula
+        if len(re.findall(r"\b[A-ZÁÉÍÓÚÑ][\wáéíóúñ']+", s)) >= 2:
+            return s
+    return None
+
+
 def subdivision(titulo: str) -> str:
     """'COLEGIO DE NOTARIOS DEL ESTADO DE JALISCO' -> 'Jalisco'"""
     s = " ".join(titulo.split())
@@ -81,12 +100,13 @@ def main():
         if not (44 <= i <= 77):
             continue
 
+        textos = [sh.text_frame.text for sh in slide.shapes
+                  if sh.has_text_frame and sh.text_frame.text.strip()]
         titulo = ""
-        for sh in slide.shapes:
-            if sh.has_text_frame:
-                t = " ".join(sh.text_frame.text.split())
-                if re.search(r"colegio|consejo", t, re.I) and len(t) > len(titulo):
-                    titulo = t
+        for t in textos:
+            t1 = " ".join(t.split())
+            if re.search(r"colegio|consejo", t1, re.I) and len(t1) > len(titulo):
+                titulo = t1
         if not titulo:
             continue
 
@@ -109,7 +129,8 @@ def main():
             if izq + ancho / 2 > ANCHO_DIAPO_IN / 2:
                 candidatas.append((ancho * (Emu(sh.height).inches if sh.height else 0), sh))
 
-        entrada = {"slide": i, "subdivision": sub, "titulo": titulo, "archivo": None}
+        entrada = {"slide": i, "subdivision": sub, "titulo": titulo,
+                   "autoridad": autoridad(textos), "archivo": None}
         if candidatas and not sin_foto:
             _, sh = max(candidatas, key=lambda c: c[0])  # la más grande del lado derecho
             im = Image.open(io.BytesIO(sh.image.blob))

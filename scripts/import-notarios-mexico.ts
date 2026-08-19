@@ -95,8 +95,16 @@ const fmt = (n: number | null) => (n == null ? null : n.toLocaleString("es-AR"))
   const wb = XLSX.readFile(F_MEXICO);
   const rows: any[][] = XLSX.utils.sheet_to_json(wb.Sheets["Hoja1"], { header: 1, defval: null, range: 1 });
 
+  const mapaFotos = JSON.parse(
+    fs.readFileSync(path.join(DIR_FOTOS, "_mapa.json"), "utf-8")
+  ) as { subdivision: string; autoridad: string | null; archivo: string | null }[];
+
+  // Quién figura hoy como autoridad de cada colegio: si el PPT trae otro nombre,
+  // hubo relevo y hay que traspasar el cargo en vez de duplicar la ficha.
+  const { data: orgs } = await sb.from("organizaciones").select("id,subdivision,autoridad").eq("pais_id", "mexico");
+
   // Trae los existentes una sola vez para el match exacto por nombre normalizado.
-  const { data: existentes } = await sb.from("participantes").select("id,nombre_completo,foto_url,organizacion,pais_id,cargo_principal");
+  const { data: existentes } = await sb.from("participantes").select("id,nombre_completo,foto_url,organizacion,pais_id,cargo_principal,prioridad_score");
   const porNombre = new Map<string, any>();
   for (const p of existentes ?? []) {
     porNombre.set(quitarAcentos(normalizarNombrePersona(p.nombre_completo)).toLowerCase(), p);
@@ -104,11 +112,19 @@ const fmt = (n: number | null) => (n == null ? null : n.toLocaleString("es-AR"))
 
   const filas = rows.filter((r) => r[COL.COLEGIO] && r[COL.PRESIDENTE]);
 
-  // La presidenta del Colegio Nacional no está en el Excel: sale del PPT (slide 45).
-  filas.push(["Colegio Nacional del Notariado Mexicano, A.C.", "Guadalupe Díaz Carranza", null, 4500, null, null, null]);
+  // La presidencia del Colegio Nacional no está en el Excel: sale del PPT, leída
+  // por extraer_fotos_mexico.py. Va del archivo y no hardcodeada porque cambia:
+  // en agosto de 2026 pasó de Guadalupe Díaz Carranza a Ricardo Vargas Navarro.
+  const fichaNacional = mapaFotos.find((m) => m.subdivision === "Colegio Nacional");
+  if (!fichaNacional?.autoridad) {
+    console.error("No se pudo leer la autoridad del Colegio Nacional del PPT. Corré extraer_fotos_mexico.py primero.");
+    process.exit(1);
+  }
+  filas.push(["Colegio Nacional del Notariado Mexicano, A.C.", fichaNacional.autoridad, null, 4500, null, null, null]);
 
   let creados = 0, completados = 0, intactos = 0, sinFoto = 0;
   const dudosos: { nuevo: string; parecido: string; similitud: number; organizacion: string | null }[] = [];
+  const relevos: { colegio: string; antes: string; ahora: string }[] = [];
 
   for (const r of filas) {
     const colegio = String(r[COL.COLEGIO]).trim();
@@ -119,6 +135,26 @@ const fmt = (n: number | null) => (n == null ? null : n.toLocaleString("es-AR"))
 
     const clave = quitarAcentos(nombre).toLowerCase();
     const yaEsta = porNombre.get(clave) ?? (FUSIONES[clave] ? porNombre.get(FUSIONES[clave]) : undefined);
+
+    // ¿Relevo? La autoridad guardada no coincide con la que trae la fuente.
+    const org = (orgs ?? []).find((o) => quitarAcentos(o.subdivision ?? "").toLowerCase().replace(/\s/g, "") === quitarAcentos(sub).toLowerCase().replace(/\s/g, ""))
+      ?? (sub === "Colegio Nacional" ? (orgs ?? []).find((o) => o.id === "mexico-cnnm") : undefined);
+    const autoridadVieja = org?.autoridad ? normalizarNombrePersona(org.autoridad) : null;
+    if (autoridadVieja && quitarAcentos(autoridadVieja).toLowerCase() !== clave) {
+      relevos.push({ colegio: sub, antes: autoridadVieja, ahora: nombre });
+      if (!DRY) {
+        await sb.from("organizaciones").update({ autoridad: nombre }).eq("id", org!.id);
+        // Al anterior no se lo borra: sigue siendo un contacto real y puede
+        // conservar notas e historial. Solo deja de figurar como presidente.
+        const saliente = porNombre.get(quitarAcentos(autoridadVieja).toLowerCase());
+        if (saliente && saliente.cargo_principal === "Presidente") {
+          await sb.from("participantes").update({
+            cargo_principal: "Ex presidente",
+            notas_publicas: `Fue presidente del ${colegio}. Relevado en la actualización del ${new Date().toISOString().slice(0, 10)}.`,
+          }).eq("id", saliente.id);
+        }
+      }
+    }
 
     // Nombres parecidos pero no idénticos: se avisan, no se fusionan solos.
     if (!yaEsta) {
@@ -141,7 +177,12 @@ const fmt = (n: number | null) => (n == null ? null : n.toLocaleString("es-AR"))
       const parche: Record<string, any> = {};
       if ((REFOTOS || !yaEsta.foto_url) && foto) parche.foto_url = await subirFoto(foto, slug(nombre));
       if (!yaEsta.organizacion) parche.organizacion = colegio;
-      if (!yaEsta.cargo_principal) parche.cargo_principal = "Presidente";
+      // El cargo sí se pisa: por definición de este script esta persona es hoy
+      // la autoridad del colegio, y eso pesa más comercialmente que el rol UINL
+      // que traía de un congreso. El rol viejo no se pierde: sigue en roles_raw
+      // y en la tabla participaciones.
+      if (yaEsta.cargo_principal !== "Presidente") parche.cargo_principal = "Presidente";
+      if ((yaEsta.prioridad_score ?? 0) < 40) parche.prioridad_score = 40;
       // Si el país nunca se resolvió, el pais_label suele traer basura (en un
       // caso tenía el cargo entero adentro). Ahí sí conviene reescribirlo.
       if (!yaEsta.pais_id) {
@@ -180,6 +221,14 @@ const fmt = (n: number | null) => (n == null ? null : n.toLocaleString("es-AR"))
     }
     creados++;
     console.log(`  + ${nombre} — ${sub}${foto ? "" : "  (sin foto)"}`);
+  }
+
+  if (relevos.length) {
+    console.log(`\n⟳ ${relevos.length} relevo(s) de autoridad:`);
+    for (const r of relevos) {
+      console.log(`   ${r.colegio}: ${r.antes} → ${r.ahora}`);
+      console.log(`     (al saliente se le pone "Ex presidente"; no se borra, sigue siendo un contacto)`);
+    }
   }
 
   console.log(`\n${DRY ? "[DRY RUN] " : ""}Creados: ${creados} · Completados: ${completados} · Sin cambios: ${intactos} · Sin foto: ${sinFoto}`);

@@ -22,7 +22,7 @@ const HONORIFICOS = [
   "lic\\.?", "licenciado", "licenciada",
   "dr\\.?", "dra\\.?", "doctor", "doctora",
   "mtro\\.?", "mtra\\.?", "maestro", "maestra",
-  "ing\\.?", "abg\\.?", "pte\\.?", "presidente", "presidenta"
+  "ing\\.?", "abg\\.?", "pte\\.?", "pta\\.?", "presidente", "presidenta"
 ];
 const RE_HONORIFICOS = new RegExp(`^(?:${HONORIFICOS.join("|")})\\s+`, "i");
 
