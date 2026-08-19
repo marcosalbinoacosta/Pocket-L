@@ -153,15 +153,17 @@ export default function PaisDetallePage() {
               </thead>
               <tbody>
                 {colegios.map(o => (
-                  <tr key={o.id}>
+                  <tr key={o.id} className="cursor-pointer">
                     <td>
-                      <div className="font-semibold text-ink">{o.subdivision ?? o.nombre}</div>
-                      {o.autoridad && <div className="text-[11px] text-slate-400">{o.autoridad}</div>}
-                      {o.tipo === "consejo_nacional" && (
-                        <span className="mt-0.5 inline-flex rounded-full bg-slate-100 px-1.5 py-0 text-[9px] font-semibold uppercase tracking-smallcaps text-slate-500">
-                          Coordina, no compra
-                        </span>
-                      )}
+                      <Link href={`/colegios/${o.id}`} className="block">
+                        <div className="font-semibold text-ink">{o.subdivision ?? o.nombre}</div>
+                        {o.autoridad && <div className="text-[11px] text-slate-400">{o.autoridad}</div>}
+                        {o.tipo === "consejo_nacional" && (
+                          <span className="mt-0.5 inline-flex rounded-full bg-slate-100 px-1.5 py-0 text-[9px] font-semibold uppercase tracking-smallcaps text-slate-500">
+                            Coordina, no compra
+                          </span>
+                        )}
+                      </Link>
                     </td>
                     <td className="num text-right text-ink">{fmtNumero(o.cantidad_notarios)}</td>
                     <td className="num text-right text-ink">{fmtMillones(o.consumo_anual)}</td>
