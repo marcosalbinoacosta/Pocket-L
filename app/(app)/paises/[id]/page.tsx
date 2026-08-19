@@ -1,11 +1,17 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabase";
 import ParticipantCard from "@/components/ui/ParticipantCard";
 import type { Pais, ParticipanteConEstado, Organizacion } from "@/lib/types";
 import { fmtMillones, fmtNumero, nivelSeguridad, segLabel, segColor } from "@/lib/format";
+import { quitarAcentos } from "@/lib/utils";
+
+// Cuántos colegios se muestran antes de pedir "ver todos". México tiene 33 y
+// desplegados empujan a los inscriptos fuera de la pantalla, que es lo que
+// más se consulta.
+const COLEGIOS_VISIBLES = 5;
 
 type PaisConRollup = Pais & { cantidad_notarios_total: number | null; consumo_anual_total: number | null; cantidad_organizaciones: number };
 
@@ -15,6 +21,20 @@ export default function PaisDetallePage() {
   const [pais, setPais] = useState<PaisConRollup | null>(null);
   const [items, setItems] = useState<ParticipanteConEstado[] | null>(null);
   const [colegios, setColegios] = useState<Organizacion[] | null>(null);
+  const [verTodos, setVerTodos] = useState(false);
+  const [filtro, setFiltro] = useState("");
+
+  // Con la lista desplegada se puede filtrar por estado o por autoridad; sin
+  // desplegar se muestran los de mayor consumo, que es como vienen ordenados.
+  const colegiosVisibles = useMemo(() => {
+    if (!colegios) return [];
+    const q = quitarAcentos(filtro.trim().toLowerCase());
+    if (!verTodos) return colegios.slice(0, COLEGIOS_VISIBLES);
+    if (!q) return colegios;
+    return colegios.filter(o =>
+      quitarAcentos(`${o.subdivision ?? ""} ${o.nombre} ${o.autoridad ?? ""}`.toLowerCase()).includes(q)
+    );
+  }, [colegios, verTodos, filtro]);
 
   useEffect(() => {
     if (!id) return;
@@ -140,8 +160,22 @@ export default function PaisDetallePage() {
         <>
           <div className="mt-6 mb-2 flex items-end justify-between">
             <h2 className="app-h2">Colegios</h2>
-            <span className="label">{colegios.length}</span>
+            <span className="label">
+              {verTodos && filtro.trim()
+                ? `${colegiosVisibles.length} de ${colegios.length}`
+                : colegios.length}
+            </span>
           </div>
+
+          {verTodos && colegios.length > COLEGIOS_VISIBLES && (
+            <input
+              value={filtro}
+              onChange={(e) => setFiltro(e.target.value)}
+              placeholder="Filtrar por estado o autoridad…"
+              className="input mb-2"
+            />
+          )}
+
           <div className="card overflow-hidden">
             <table className="tbl">
               <thead>
@@ -152,7 +186,7 @@ export default function PaisDetallePage() {
                 </tr>
               </thead>
               <tbody>
-                {colegios.map(o => (
+                {colegiosVisibles.map(o => (
                   <tr key={o.id} className="cursor-pointer">
                     <td>
                       <Link href={`/colegios/${o.id}`} className="block">
@@ -169,9 +203,25 @@ export default function PaisDetallePage() {
                     <td className="num text-right text-ink">{fmtMillones(o.consumo_anual)}</td>
                   </tr>
                 ))}
+                {colegiosVisibles.length === 0 && (
+                  <tr>
+                    <td colSpan={3} className="py-4 text-center text-xs text-slate-400">
+                      Ningún colegio coincide con «{filtro}»
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
+
+          {colegios.length > COLEGIOS_VISIBLES && (
+            <button
+              onClick={() => { setVerTodos(v => !v); setFiltro(""); }}
+              className="btn-secondary mt-2 w-full !py-2 !text-sm"
+            >
+              {verTodos ? "Ver menos" : `Ver los ${colegios.length} colegios`}
+            </button>
+          )}
         </>
       )}
 
