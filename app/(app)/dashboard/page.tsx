@@ -2,14 +2,11 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabase";
-import EstadoBadge from "@/components/ui/EstadoBadge";
 import { fmtFecha } from "@/lib/utils";
+import { EVENTO_ACTUAL, INICIO_EVENTO, INICIO_EVENTO_FECHA, esDeEsteEvento } from "@/lib/evento";
 
-interface Stats { total: number; pendientes: number; contactados: number; alta_prioridad: number; no_interesado: number }
 interface StandStats {
   total: number;
-  hoy: number;
-  ultima_semana: number;
   ligados_uinl: number;
   paises_distintos: number;
   con_proximos_pasos: number;
@@ -19,29 +16,61 @@ interface StandStats {
   accion_info: number;
 }
 
+/** "hace 3 m" en una tabla densa dice más que una fecha completa. */
+function haceCuanto(iso: string | null): string {
+  if (!iso) return "nunca";
+  const dias = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+  if (dias <= 0) return "hoy";
+  if (dias === 1) return "ayer";
+  if (dias < 30) return `hace ${dias} d`;
+  return `hace ${Math.round(dias / 30)} m`;
+}
+
 export default function DashboardPage() {
-  const [stats, setStats] = useState<Stats | null>(null);
+  const [objetivo, setObjetivo] = useState<any[]>([]);
+  const [trabajado, setTrabajado] = useState<any[]>([]);
   const [standStats, setStandStats] = useState<StandStats | null>(null);
-  const [alta, setAlta] = useState<any[]>([]);
   const [ultimasNotas, setUltimasNotas] = useState<any[]>([]);
 
   useEffect(() => {
     const sb = supabaseBrowser();
     const load = async () => {
-      const s = await sb.from("v_dashboard_stats").select("*").single();
-      const ss = await sb.from("v_stand_stats").select("*").single();
-      const a = await sb.from("contactos")
-        .select("estado,alta_prioridad,updated_at,participante:participantes(id,nombre_completo,pais_label,cargo_principal)")
-        .eq("alta_prioridad", true)
-        .order("updated_at", { ascending: false });
+      // la lista de caza: todo lo marcado con ★, venga de la sede que venga
+      const o = await sb.from("contactos")
+        .select("estado,alta_prioridad,ultimo_contacto_at,participante:participantes(id,nombre_completo,pais_label,cargo_principal)")
+        .eq("alta_prioridad", true);
+      // lo efectivamente trabajado en esta sede, esté o no en la lista de caza
+      const t = await sb.from("contactos")
+        .select("estado,alta_prioridad,ultimo_contacto_at,participante:participantes(id,nombre_completo,pais_label,cargo_principal)")
+        .gte("ultimo_contacto_at", INICIO_EVENTO)
+        .order("ultimo_contacto_at", { ascending: false });
       const n = await sb.from("notas")
         .select("id,texto,created_at,rep:representantes(nombre,color),participante:participantes(id,nombre_completo)")
+        .gte("created_at", INICIO_EVENTO)
         .order("created_at", { ascending: false })
         .limit(8);
-      if (s.data) setStats(s.data as Stats);
-      if (ss.data) setStandStats(ss.data as StandStats);
-      if (a.data) setAlta(a.data as any);
+      // el stand se acota por su propia fecha; v_stand_stats suma todas las sedes
+      const s = await sb.from("stand_contactos")
+        .select("participante_id,pais_id,p15_proximos_pasos")
+        .gte("fecha", INICIO_EVENTO_FECHA);
+
+      if (o.data) setObjetivo(o.data as any);
+      if (t.data) setTrabajado(t.data as any);
       if (n.data) setUltimasNotas(n.data as any);
+      if (s.data) {
+        const f = s.data as any[];
+        const tiene = (a: string) => f.filter(x => (x.p15_proximos_pasos ?? []).includes(a)).length;
+        setStandStats({
+          total: f.length,
+          ligados_uinl: f.filter(x => x.participante_id).length,
+          paises_distintos: new Set(f.filter(x => x.pais_id).map(x => x.pais_id)).size,
+          con_proximos_pasos: f.filter(x => (x.p15_proximos_pasos ?? []).length > 0).length,
+          accion_reunion: tiene("reunion_virtual"),
+          accion_visita: tiene("visita_presencial"),
+          accion_cotizacion: tiene("cotizacion"),
+          accion_info: tiene("info")
+        });
+      }
     };
     load();
     const ch = sb.channel("dashboard")
@@ -52,8 +81,16 @@ export default function DashboardPage() {
     return () => { sb.removeChannel(ch); };
   }, []);
 
-  const pct = stats && stats.total > 0
-    ? Math.round((stats.contactados / stats.total) * 100)
+  // los ★ todavía sin abordar acá: primero los que ya conocemos de otra sede,
+  // que son los leads más calientes; los nunca contactados van al final
+  const porAbordar = objetivo
+    .filter(c => !esDeEsteEvento(c.ultimo_contacto_at))
+    .sort((a, b) => (b.ultimo_contacto_at ?? "").localeCompare(a.ultimo_contacto_at ?? ""));
+  const abordados = objetivo.filter(c => esDeEsteEvento(c.ultimo_contacto_at));
+  const fueraDeLista = trabajado.filter(c => !c.alta_prioridad);
+
+  const pct = objetivo.length > 0
+    ? Math.round((abordados.length / objetivo.length) * 100)
     : 0;
 
   const standPct = standStats && standStats.total > 0
@@ -62,16 +99,19 @@ export default function DashboardPage() {
 
   return (
     <main className="app-shell">
-      <h1 className="app-h1 mb-4">Equipo</h1>
+      <div className="mb-4 flex items-baseline justify-between gap-2">
+        <h1 className="app-h1">Equipo</h1>
+        <span className="label shrink-0">{EVENTO_ACTUAL}</span>
+      </div>
 
-      {/* progreso global */}
+      {/* progreso del congreso: cuántos objetivos ya abordamos acá */}
       <div className="card card-pad">
         <div className="flex items-baseline justify-between">
           <div>
-            <div className="label">Progreso global</div>
+            <div className="label">Objetivos abordados</div>
             <div className="mt-1">
-              <span className="num text-3xl font-bold text-brand-700">{stats?.contactados ?? "—"}</span>
-              <span className="num text-base text-slate-400"> / {stats?.total ?? "—"}</span>
+              <span className="num text-3xl font-bold text-brand-700">{abordados.length}</span>
+              <span className="num text-base text-slate-400"> / {objetivo.length}</span>
             </div>
           </div>
           <div className="num text-2xl font-bold text-gold-600">{pct}%</div>
@@ -81,11 +121,10 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* breakdown */}
       <div className="mt-3 grid grid-cols-3 gap-2">
-        <Stat label="Pendientes"   value={stats?.pendientes} />
-        <Stat label="Alta"         value={stats?.alta_prioridad} accent />
-        <Stat label="No interés"   value={stats?.no_interesado} muted />
+        <Stat label="Por abordar" value={porAbordar.length} accent />
+        <Stat label="Abordados"   value={abordados.length} />
+        <Stat label="Fuera lista" value={fueraDeLista.length} muted />
       </div>
 
       {/* F.0024-02 Contactos de stand */}
@@ -132,50 +171,30 @@ export default function DashboardPage() {
         </div>
       </Link>
 
-      {/* Tabla densa: Alta prioridad */}
+      {/* La lista de caza */}
       <div className="mt-6 mb-2 flex items-end justify-between">
-        <h2 className="app-h2">Alta prioridad</h2>
-        <span className="label">{alta.length}</span>
+        <h2 className="app-h2">Por abordar</h2>
+        <span className="label">{porAbordar.length}</span>
       </div>
-
-      {alta.length === 0 ? (
-        <div className="ph py-6">Sin contactos marcados como alta prioridad</div>
-      ) : (
-        <div className="card overflow-hidden">
-          <table className="tbl">
-            <thead>
-              <tr>
-                <th>Nombre</th>
-                <th>País</th>
-                <th className="text-right">Hace</th>
-              </tr>
-            </thead>
-            <tbody>
-              {alta.map((c: any) => c.participante && (
-                <tr key={c.participante.id}>
-                  <td className="max-w-[140px]">
-                    <Link href={`/contacto/${c.participante.id}`} className="font-medium text-ink hover:text-brand-700">
-                      <div className="flex items-center gap-1 truncate">
-                        <span className="text-gold-600">★</span>
-                        <span className="truncate">{c.participante.nombre_completo}</span>
-                      </div>
-                      <div className="mt-0.5 flex items-center gap-1.5">
-                        {c.estado === "contactado" && <span className="rounded-full bg-emerald-50 px-1.5 py-0 text-[9px] font-semibold uppercase tracking-smallcaps text-emerald-700 ring-1 ring-inset ring-emerald-200">Contactado</span>}
-                        {c.estado === "pendiente" && <span className="rounded-full bg-slate-100 px-1.5 py-0 text-[9px] font-semibold uppercase tracking-smallcaps text-slate-500 ring-1 ring-inset ring-slate-200">Pendiente</span>}
-                        {c.estado === "no_interesado" && <span className="rounded-full bg-slate-100 px-1.5 py-0 text-[9px] font-semibold uppercase tracking-smallcaps text-slate-500 ring-1 ring-inset ring-slate-200">No interés</span>}
-                        {c.participante.cargo_principal && (
-                          <span className="truncate text-[10px] text-slate-400 uppercase tracking-smallcaps">{c.participante.cargo_principal}</span>
-                        )}
-                      </div>
-                    </Link>
-                  </td>
-                  <td className="text-slate-500">{c.participante.pais_label}</td>
-                  <td className="num text-right text-slate-400">{fmtFecha(c.updated_at)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {porAbordar.length === 0 ? (
+        <div className="ph py-6">
+          {objetivo.length === 0
+            ? "Sin contactos marcados con ★"
+            : "Todos los objetivos ya fueron abordados en este congreso"}
         </div>
+      ) : (
+        <Tabla filas={porAbordar} columna="Última vez" />
+      )}
+
+      {/* Lo hecho en esta sede */}
+      <div className="mt-6 mb-2 flex items-end justify-between">
+        <h2 className="app-h2">Trabajado acá</h2>
+        <span className="label">{trabajado.length}</span>
+      </div>
+      {trabajado.length === 0 ? (
+        <div className="ph py-6">Todavía sin contactos en este congreso</div>
+      ) : (
+        <Tabla filas={trabajado} columna="Cuándo" />
       )}
 
       {/* Últimas notas */}
@@ -198,9 +217,57 @@ export default function DashboardPage() {
             <div className="mt-1 text-sm whitespace-pre-wrap line-clamp-3">{n.texto}</div>
           </li>
         ))}
-        {ultimasNotas.length === 0 && <li className="ph py-4">Sin notas todavía</li>}
+        {ultimasNotas.length === 0 && <li className="ph py-4">Sin notas en este congreso</li>}
       </ul>
+
+      <p className="mt-6 text-center text-[11px] text-slate-400">
+        El historial de congresos anteriores sigue en la ficha de cada persona.
+      </p>
     </main>
+  );
+}
+
+function Tabla({ filas, columna }: { filas: any[]; columna: string }) {
+  return (
+    <div className="card overflow-hidden">
+      <table className="tbl">
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>País</th>
+            <th className="text-right">{columna}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filas.map((c: any) => c.participante && (
+            <tr key={c.participante.id}>
+              <td className="max-w-[140px]">
+                <Link href={`/contacto/${c.participante.id}`} className="font-medium text-ink hover:text-brand-700">
+                  <div className="flex items-center gap-1 truncate">
+                    {c.alta_prioridad && <span className="text-gold-600">★</span>}
+                    <span className="truncate">{c.participante.nombre_completo}</span>
+                  </div>
+                  <div className="mt-0.5 flex items-center gap-1.5">
+                    {c.ultimo_contacto_at
+                      ? !esDeEsteEvento(c.ultimo_contacto_at) && (
+                          <span className="rounded-full bg-amber-50 px-1.5 py-0 text-[9px] font-semibold uppercase tracking-smallcaps text-amber-700 ring-1 ring-inset ring-amber-200">Seguimiento</span>
+                        )
+                      : (
+                          <span className="rounded-full bg-slate-100 px-1.5 py-0 text-[9px] font-semibold uppercase tracking-smallcaps text-slate-500 ring-1 ring-inset ring-slate-200">Nuevo</span>
+                        )}
+                    {c.participante.cargo_principal && (
+                      <span className="truncate text-[10px] text-slate-400 uppercase tracking-smallcaps">{c.participante.cargo_principal}</span>
+                    )}
+                  </div>
+                </Link>
+              </td>
+              <td className="text-slate-500">{c.participante.pais_label}</td>
+              <td className="num text-right text-slate-400">{haceCuanto(c.ultimo_contacto_at)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

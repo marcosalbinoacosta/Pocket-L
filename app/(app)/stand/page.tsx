@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase";
 import { fmtFecha, quitarAcentos } from "@/lib/utils";
+import { EVENTO_ACTUAL, INICIO_EVENTO_FECHA } from "@/lib/evento";
 import type { ProximoPaso } from "@/lib/types";
 
 type Row = {
@@ -32,6 +33,9 @@ export default function StandListPage() {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [q, setQ] = useState("");
   const [filtro, setFiltro] = useState<ProximoPaso | "todos">("todos");
+  // arranca en la sede en curso: es lo que se mira en el mostrador.
+  // el archivo completo queda a un tap, para cuando alguien vuelve de otro congreso.
+  const [sede, setSede] = useState<"actual" | "todas">("actual");
 
   useEffect(() => {
     const sb = supabaseBrowser();
@@ -54,18 +58,38 @@ export default function StandListPage() {
     if (!rows) return null;
     const term = quitarAcentos(q.trim().toLowerCase());
     return rows.filter(r => {
+      // `fecha` es un date "YYYY-MM-DD": comparar como texto es exacto y sin husos
+      if (sede === "actual" && r.fecha < INICIO_EVENTO_FECHA) return false;
       if (filtro !== "todos" && !(r.p15_proximos_pasos ?? []).includes(filtro)) return false;
       if (!term) return true;
       const blob = quitarAcentos(`${r.contacto_nombre} ${r.institucion ?? ""} ${r.pais_label ?? ""} ${r.email ?? ""}`.toLowerCase());
       return blob.includes(term);
     });
-  }, [rows, q, filtro]);
+  }, [rows, q, filtro, sede]);
+
+  const totalOtrasSedes = (rows ?? []).filter(r => r.fecha < INICIO_EVENTO_FECHA).length;
 
   return (
     <main className="app-shell">
       <div className="mb-3 flex items-center justify-between">
         <h1 className="app-h1">Stand · F.0024-02</h1>
         <button onClick={() => router.push("/stand/nuevo")} className="btn-gold px-3 py-2 text-sm">+ Nuevo</button>
+      </div>
+
+      {/* sede: por defecto la actual, para que la lista coincida con el dashboard */}
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="flex shrink-0 rounded-full border border-slate-200 bg-white p-0.5 text-xs font-semibold">
+          {([["actual", EVENTO_ACTUAL], ["todas", "Todas"]] as const).map(([v, l]) => (
+            <button
+              key={v}
+              onClick={() => setSede(v)}
+              className={`rounded-full px-3 py-1 transition-colors ${
+                sede === v ? "bg-brand-50 text-brand-700" : "text-slate-500"
+              }`}
+            >{l}</button>
+          ))}
+        </div>
+        <span className="label shrink-0">{filtered?.length ?? "—"} fichas</span>
       </div>
 
       <input
@@ -99,7 +123,16 @@ export default function StandListPage() {
       )}
 
       {filtered && filtered.length === 0 && (
-        <div className="ph py-10 text-center">Sin contactos cargados todavía</div>
+        <div className="ph py-10 text-center">
+          {sede === "actual" && totalOtrasSedes > 0 ? (
+            <>
+              Sin fichas en {EVENTO_ACTUAL} todavía
+              <button onClick={() => setSede("todas")} className="mt-2 block w-full text-brand-700 underline">
+                Ver las {totalOtrasSedes} de congresos anteriores
+              </button>
+            </>
+          ) : "Sin contactos cargados todavía"}
+        </div>
       )}
 
       <ul className="space-y-2">
