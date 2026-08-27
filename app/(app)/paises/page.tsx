@@ -16,6 +16,8 @@ export default function PaisesPage() {
   const [rows, setRows] = useState<PaisRow[] | null>(null);
   const [sort, setSort] = useState<Sort>("nombre");
   const [filtro, setFiltro] = useState<Filtro>("todos");
+  // el continente es un eje aparte de los chips de abajo: se combinan entre si
+  const [continente, setContinente] = useState<string>("todos");
   const [q, setQ] = useState("");
 
   useEffect(() => {
@@ -36,6 +38,7 @@ export default function PaisesPage() {
   const visible = useMemo(() => {
     if (!rows) return null;
     let r = rows;
+    if (continente !== "todos") r = r.filter(x => x.continente === continente);
     if (filtro === "objetivos")       r = r.filter(x => PAISES_OBJETIVO.has(x.id));
     if (filtro === "sin_seguridad")   r = r.filter(x => nivelSeguridad(x.caracteristicas_tecnicas) === "nula");
     if (filtro === "papel_seguridad") r = r.filter(x => nivelSeguridad(x.caracteristicas_tecnicas) === "alta");
@@ -58,17 +61,27 @@ export default function PaisesPage() {
       }
     });
     return arr;
-  }, [rows, sort, filtro, q]);
+  }, [rows, sort, filtro, continente, q]);
+
+  // los continentes salen de los datos: si entra un pais nuevo, aparece solo
+  const continentes = useMemo(
+    () => Array.from(new Set((rows ?? []).map(r => r.continente).filter(Boolean) as string[])).sort(),
+    [rows]
+  );
 
   const total = rows?.length ?? 0;
-  const consumoTotal = (rows ?? []).reduce((s, r) => s + (r.consumo_anual_total ?? 0), 0);
+  // el encabezado acompana lo que se ve: filtrar por Europa muestra el agregado de Europa
+  const visibles = visible?.length ?? total;
+  const consumoVisible = (visible ?? rows ?? []).reduce((s, r) => s + (r.consumo_anual_total ?? 0), 0);
 
   return (
     <main className="app-shell">
       <header className="mb-3">
         <h1 className="app-h1">Países</h1>
         <p className="text-sm text-slate-500">
-          <span className="num">{total}</span> países UINL · consumo agregado <span className="num font-semibold text-brand-700">{fmtMillones(consumoTotal)}</span> fojas/año
+          <span className="num">{visibles}</span>
+          {visibles !== total && <> de <span className="num">{total}</span></>} países UINL · consumo agregado{" "}
+          <span className="num font-semibold text-brand-700">{fmtMillones(consumoVisible)}</span> fojas/año
         </p>
       </header>
 
@@ -80,6 +93,19 @@ export default function PaisesPage() {
           placeholder="Filtrar país u organización…"
           className="input"
         />
+      </div>
+
+      {/* continente: eje geográfico, en tinta para no confundirlo con los chips de abajo */}
+      <div className="noscroll mb-2 flex gap-1.5 overflow-x-auto pb-1">
+        {["todos", ...continentes].map(c => (
+          <button
+            key={c}
+            onClick={() => setContinente(c)}
+            className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+              continente === c ? "bg-ink text-white" : "border border-slate-200 bg-white text-slate-600"
+            }`}
+          >{c === "todos" ? "Todo el mundo" : c}</button>
+        ))}
       </div>
 
       {/* filtros chips */}
